@@ -1,0 +1,6 @@
+{
+  "appId": "com.nutrifit.app",
+  "appName": "NutriFit",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

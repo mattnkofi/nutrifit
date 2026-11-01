@@ -1,0 +1,416 @@
+@import '@ionic/core/css/core.css';
+@import '@ionic/core/css/normalize.css';
+@import '@ionic/core/css/structure.css';
+@import '@ionic/core/css/typography.css';
+
+:root {
+  --bg: #050505;
+  --bg-soft: #0a0a0a;
+  --surface: #0e0e0e;
+  --surface-2: #141414;
+  --surface-3: #1b1b1b;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.24);
+  --text: #f5f5f5;
+  --text-soft: #cfcfcf;
+  --muted: #9a9a9a;
+  --dim: #7c7c7c;
+  --white: #ffffff;
+  --black: #000000;
+  --always-white: #ffffff;
+  --always-black: #000000;
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --font-body: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Oswald', 'Poppins', system-ui, sans-serif;
+  --page-x: clamp(20px, 4vw, 64px);
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --ion-background-color: #050505;
+  --ion-background-color-rgb: 5, 5, 5;
+  --ion-text-color: #f5f5f5;
+  --ion-text-color-rgb: 245, 245, 245;
+  --ion-color-primary: #ffffff;
+  --ion-color-primary-rgb: 255, 255, 255;
+  --ion-color-primary-contrast: #000000;
+  --ion-color-primary-contrast-rgb: 0, 0, 0;
+  --ion-color-primary-shade: #e6e6e6;
+  --ion-color-primary-tint: #ffffff;
+  --ion-color-secondary: #8f8f8f;
+  --ion-color-secondary-rgb: 143, 143, 143;
+  --ion-color-secondary-contrast: #000000;
+  --ion-color-secondary-contrast-rgb: 0, 0, 0;
+  --ion-color-medium: #8f8f8f;
+  --ion-color-medium-rgb: 143, 143, 143;
+  --ion-color-light: #f5f5f5;
+  --ion-color-light-rgb: 245, 245, 245;
+  --ion-font-family: var(--font-body);
+}
+
+/* Theme variants applied by services/preferences.js via data-theme on <html>. */
+[data-theme='dim'] {
+  --bg: #0d0f11;
+  --bg-soft: #121417;
+  --surface: #171a1e;
+  --surface-2: #1d2126;
+  --surface-3: #24282e;
+  --line: rgba(255, 255, 255, 0.12);
+  --line-strong: rgba(255, 255, 255, 0.26);
+  --text: #eef1f4;
+  --text-soft: #c4c9cf;
+  --muted: #969ca3;
+  --dim: #7c838b;
+  --ion-background-color: #0d0f11;
+  --ion-background-color-rgb: 13, 15, 17;
+  --ion-text-color: #eef1f4;
+  --ion-text-color-rgb: 238, 241, 244;
+}
+
+[data-theme='contrast'] {
+  --bg: #000000;
+  --bg-soft: #080808;
+  --surface: #101010;
+  --surface-2: #171717;
+  --surface-3: #1f1f1f;
+  --line: rgba(255, 255, 255, 0.2);
+  --line-strong: rgba(255, 255, 255, 0.48);
+  --text: #ffffff;
+  --text-soft: #ececec;
+  --muted: #c2c2c2;
+  --dim: #a3a3a3;
+  --ion-background-color: #000000;
+  --ion-background-color-rgb: 0, 0, 0;
+  --ion-text-color: #ffffff;
+  --ion-text-color-rgb: 255, 255, 255;
+}
+
+[data-theme='light'] {
+  --bg: #f8fafc;
+  --bg-soft: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
+  --line: rgba(0, 0, 0, 0.08);
+  --line-strong: rgba(0, 0, 0, 0.16);
+  --text: #0f172a;
+  --text-soft: #334155;
+  --muted: #475569;
+  --dim: #64748b;
+  --ion-background-color: #f8fafc;
+  --ion-background-color-rgb: 248, 250, 252;
+  --ion-text-color: #0f172a;
+  --ion-text-color-rgb: 15, 23, 42;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  line-height: 1.6;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 72px 72px;
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--white);
+  color: var(--black);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3a3a transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #2f2f2f;
+  border: 3px solid var(--bg);
+  border-radius: 99px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+ion-app {
+  background: transparent;
+}
+
+ion-content {
+  --background: var(--bg);
+  --color: var(--text);
+}
+
+.ion-page {
+  background: transparent;
+}
+
+ion-toolbar {
+  --background: transparent;
+  --border-width: 0;
+  --color: var(--text);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+button,
+input,
+textarea,
+select,
+ion-icon,
+.neo-card,
+.feature-card,
+.rec-card,
+.lib-card,
+.action-pill,
+.metric-card {
+  transition:
+    transform 0.35s var(--ease),
+    background-color 0.35s var(--ease),
+    border-color 0.35s var(--ease),
+    color 0.35s var(--ease),
+    opacity 0.35s var(--ease);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--white);
+  outline-offset: 3px;
+}
+
+main {
+  width: 100%;
+  max-width: none;
+  margin: 0 auto;
+  padding: clamp(0.8rem, 1.6vw, 1.2rem) var(--page-x) 3rem;
+}
+
+.ion-page > main,
+.ion-page > ion-content main {
+  animation: pageRise 0.55s var(--ease-out) both;
+}
+
+.neo-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.neo-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid var(--white);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--black);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.neo-button:hover {
+  background: #dedede;
+  border-color: #dedede;
+}
+
+.neo-button:active {
+  transform: scale(0.98);
+}
+
+.neo-input {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+}
+
+.eyebrow {
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.card-kicker {
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 0.56rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.05rem;
+  border: 1px solid var(--white);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--black);
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.primary-button:hover {
+  background: #dcdcdc;
+  border-color: #dcdcdc;
+  transform: translateY(-2px);
+}
+
+.primary-button:active {
+  transform: translateY(0);
+}
+
+.outline-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.05rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.outline-button:hover {
+  border-color: var(--white);
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateY(-2px);
+}
+
+@keyframes pageRise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes scanSweep {
+  0%, 100% {
+    top: 16%;
+    opacity: 0.35;
+  }
+  50% {
+    top: 76%;
+    opacity: 1;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --page-x: clamp(2rem, 6vw, 5rem);
+  }
+}
+
+@media (min-width: 1440px) {
+  :root {
+    --page-x: clamp(3rem, 8vw, 7rem);
+  }
+}
+
+@media (max-width: 1024px) {
+  main {
+    padding-bottom: 8rem;
+  }
+}
+
+@media (max-width: 700px) {
+  :root {
+    --page-x: 18px;
+  }
+
+  main {
+    padding-top: 0.75rem;
+    padding-bottom: 9.5rem;
+  }
+}
+
+

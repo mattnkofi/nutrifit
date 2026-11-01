@@ -1,0 +1,12 @@
+{
+  "name": "NutriFit",
+  "integrations": {
+    "capacitor": {
+      "appId": "com.nutrifit.app",
+      "appName": "NutriFit",
+      "webDir": "dist",
+      "bundledWebRuntime": false
+    }
+  },
+  "type": "vue-vite"
+}
