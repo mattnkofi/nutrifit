@@ -102,6 +102,12 @@
   --ion-background-color-rgb: 248, 250, 252;
   --ion-text-color: #0f172a;
   --ion-text-color-rgb: 15, 23, 42;
+  --ion-color-primary: #0f172a;
+  --ion-color-primary-rgb: 15, 23, 42;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #090d1a;
+  --ion-color-primary-tint: #1e293b;
 }
 
 html,
@@ -129,8 +135,8 @@ body {
 }
 
 ::selection {
-  background: var(--white);
-  color: var(--black);
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
 }
 
 * {
@@ -220,7 +226,7 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--white);
+  outline: 2px solid var(--ion-color-primary);
   outline-offset: 3px;
 }
 
@@ -247,10 +253,10 @@ main {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border: 1px solid var(--white);
+  border: 1px solid var(--ion-color-primary);
   border-radius: 10px;
-  background: var(--white);
-  color: var(--black);
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
   font-family: var(--font-display);
   font-size: 0.72rem;
   font-weight: 500;
@@ -259,8 +265,8 @@ main {
 }
 
 .neo-button:hover {
-  background: #dedede;
-  border-color: #dedede;
+  background: var(--ion-color-primary-tint);
+  border-color: var(--ion-color-primary-tint);
 }
 
 .neo-button:active {
@@ -275,7 +281,7 @@ main {
 }
 
 .eyebrow {
-  color: var(--white);
+  color: var(--ion-color-primary);
   font-family: var(--font-body);
   font-size: 0.66rem;
   font-weight: 500;
@@ -298,10 +304,10 @@ main {
   justify-content: center;
   gap: 0.5rem;
   padding: 0.7rem 1.05rem;
-  border: 1px solid var(--white);
+  border: 1px solid var(--ion-color-primary);
   border-radius: 10px;
-  background: var(--white);
-  color: var(--black);
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
   font-family: var(--font-display);
   font-size: 0.68rem;
   font-weight: 500;
@@ -310,8 +316,8 @@ main {
 }
 
 .primary-button:hover {
-  background: #dcdcdc;
-  border-color: #dcdcdc;
+  background: var(--ion-color-primary-tint);
+  border-color: var(--ion-color-primary-tint);
   transform: translateY(-2px);
 }
 
