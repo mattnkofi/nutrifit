@@ -121,7 +121,7 @@ App Knowledge (NutriFit features & navigation):
 - Planner (/planner): 7-day AI generated custom meal plans and workout routines tailored to user goals.
 - Scanner (/scanner): AI food lens scanner to take or upload a food photo and instantly scan and log nutrition macros.
 - Goals (/goals): Weight tracking, milestone targets, and fitness objective customization.
-- Profile (/profile): Personal account details, preferences (notifications, theme, language), data export, password updates, and account settings.
+- Profile (/profile): Personal account details, preferences (notifications, theme), profile photo cropping, data export, password updates, and account settings.
 
 How you answer:
 - Be brief and scannable: 2-4 short sentences, or 2-4 bullet points. Stay under about 90 words unless the user explicitly asks for a detailed plan.

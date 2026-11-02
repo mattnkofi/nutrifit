@@ -405,6 +405,7 @@
                 alt="Crop preview"
                 draggable="false"
                 @load="onCropImageLoad"
+                @error="onCropImageError"
               />
               <span class="crop-grid" aria-hidden="true"></span>
             </div>
@@ -1093,6 +1094,14 @@ const applyCrop = () => {
   } finally {
     cropBusy.value = false;
   }
+};
+
+const onCropImageError = () => {
+  if (cropBusy.value) return;
+  formError.value = 'Could not load that photo for cropping. Please try another image.';
+  showCropper.value = false;
+  cropSource.value = '';
+  cropMeta.value = null;
 };
 
 watch(cropZoom, clampCropOffset);
