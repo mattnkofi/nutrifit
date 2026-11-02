@@ -14,6 +14,19 @@
 
         <div class="header-actions">
           <button
+            v-if="isNative"
+            class="header-refresh"
+            :class="{ spinning: refreshing }"
+            type="button"
+            :disabled="refreshing"
+            @click="refreshApp"
+            aria-label="Refresh app"
+            title="Refresh app"
+          >
+            <ion-icon :icon="refreshOutline" />
+          </button>
+
+          <button
             v-if="isAuthenticated"
             class="coach-btn"
             :class="{ active: isCoachOpen }"
@@ -45,9 +58,10 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { barbellSharp } from 'ionicons/icons';
+import { Capacitor } from '@capacitor/core';
+import { barbellSharp, refreshOutline } from 'ionicons/icons';
 import { useCoach } from '../composables/useCoach';
 import { useSession } from '../composables/useSession';
 import { useAuth } from '../composables/useAuth';
@@ -56,6 +70,16 @@ const router = useRouter();
 const { isCoachOpen, toggleCoach } = useCoach();
 const { hasAnyModalOpen } = useSession();
 const { displayName, initials, avatarUrl, isAuthenticated } = useAuth();
+
+const isNative = Capacitor.isNativePlatform();
+const refreshing = ref(false);
+
+const refreshApp = () => {
+  if (refreshing.value) return;
+  refreshing.value = true;
+  // Give the icon one visible spin before reloading the whole web app.
+  window.setTimeout(() => window.location.reload(), 280);
+};
 
 const avatarSrc = computed(() => {
   if (avatarUrl.value) return avatarUrl.value;

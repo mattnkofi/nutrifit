@@ -113,11 +113,6 @@
                   <span class="action-copy"><strong>Theme</strong><small>{{ themeLabel(settings.theme) }}</small></span>
                   <ion-icon class="chevron" :icon="chevronForwardOutline" />
                 </button>
-                <button class="action-item" type="button" @click="openPanel('language')">
-                  <span class="action-icon"><ion-icon :icon="languageOutline" /></span>
-                  <span class="action-copy"><strong>Language</strong><small>{{ languageLabel(settings.language) }}</small></span>
-                  <ion-icon class="chevron" :icon="chevronForwardOutline" />
-                </button>
                 <button class="action-item" type="button" @click="openPanel('privacy')">
                   <span class="action-icon"><ion-icon :icon="shieldCheckmarkOutline" /></span>
                   <span class="action-copy"><strong>Privacy and security</strong><small>Password & data</small></span>
@@ -195,21 +190,25 @@
               <input v-model="form.fullName" type="text" autocomplete="name" placeholder="Your name" />
             </label>
 
-            <label class="pf-field pf-full">
+            <div class="pf-field pf-full">
               <span>Profile picture</span>
               <div class="avatar-upload-row">
-                <input type="file" accept="image/*" @change="handleAvatarFile" id="avatar-file-upload" class="file-input-hidden" />
-                <label for="avatar-file-upload" class="file-upload-btn">
+                <input ref="avatarInput" type="file" accept="image/*" @change="handleAvatarFile" id="avatar-file-upload" class="file-input-hidden" />
+                <button type="button" class="file-upload-btn" @click="requestPhotoAccess">
                   <ion-icon :icon="cameraOutline" />
                   <span>{{ form.avatarUrl ? 'Change photo' : 'Upload photo' }}</span>
-                </label>
+                </button>
                 <div class="avatar-preview-mini" v-if="form.avatarUrl">
                   <img :src="form.avatarUrl" alt="Avatar preview" @error="form.avatarUrl = ''" />
                 </div>
                 <button v-if="form.avatarUrl" class="remove-avatar-btn" type="button" @click="form.avatarUrl = ''">Remove</button>
               </div>
-              <small class="pf-hint">Choose an image from your device for your profile picture.</small>
-            </label>
+              <small class="pf-hint">Choose a photo, crop it, then save your profile.</small>
+              <span v-if="photoProcessing" class="avatar-processing">
+                <span class="avatar-processing-spinner" aria-hidden="true"></span>
+                Preparing photo...
+              </span>
+            </div>
 
             <label class="pf-field">
               <span>Age</span>
@@ -350,6 +349,79 @@
               </button>
             </div>
           </form>
+
+          <div v-if="saving" class="profile-loading-overlay" role="status" aria-live="polite">
+            <span class="profile-spinner" aria-hidden="true"></span>
+            <strong>Saving profile...</strong>
+            <small>Please wait while we upload your changes.</small>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Photo permission primer -->
+    <transition name="modal-fade">
+      <div v-if="showPhotoPermission" class="profile-modal-backdrop" @click="dismissPhotoPermission">
+        <div class="confirm-card" @click.stop>
+          <span class="confirm-icon"><ion-icon :icon="imageOutline" /></span>
+          <h2>Allow photo access</h2>
+          <p>NutriFit needs access to your photos so you can choose, crop and upload a profile picture. Android will open your photo picker next — only the photo you pick is used.</p>
+          <div class="confirm-actions">
+            <button class="pf-cancel" type="button" @click="dismissPhotoPermission">Not now</button>
+            <button class="pf-save" type="button" @click="allowPhotoAccess">Continue</button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Crop profile picture -->
+    <transition name="modal-fade">
+      <div v-if="showCropper" class="profile-modal-backdrop crop-backdrop" @click="cancelCrop">
+        <div class="profile-modal-card crop-card" @click.stop>
+          <div class="pm-header">
+            <div>
+              <span class="pm-kicker">Profile picture</span>
+              <h2>Crop photo</h2>
+            </div>
+            <button class="modal-close-btn" type="button" :disabled="cropBusy" @click="cancelCrop" aria-label="Close cropper">
+              <ion-icon :icon="closeOutline" />
+            </button>
+          </div>
+
+          <div class="crop-stage">
+            <div
+              ref="cropViewportRef"
+              class="crop-viewport"
+              @pointerdown="onCropPointerDown"
+              @pointermove="onCropPointerMove"
+              @pointerup="onCropPointerUp"
+              @pointercancel="onCropPointerUp"
+            >
+              <img
+                ref="cropImageRef"
+                :src="cropSource"
+                class="crop-image"
+                :style="cropImageStyle"
+                alt="Crop preview"
+                draggable="false"
+                @load="onCropImageLoad"
+              />
+              <span class="crop-grid" aria-hidden="true"></span>
+            </div>
+          </div>
+
+          <div class="crop-controls">
+            <span>Zoom</span>
+            <input v-model.number="cropZoom" type="range" min="1" max="3" step="0.01" aria-label="Zoom photo" />
+          </div>
+          <p class="pf-hint crop-hint">Drag the photo to reposition it, or use the slider to zoom.</p>
+
+          <div class="pf-actions">
+            <button class="pf-cancel" type="button" :disabled="cropBusy" @click="cancelCrop">Cancel</button>
+            <button class="pf-save" type="button" :disabled="cropBusy || !cropMeta" @click="applyCrop">
+              {{ cropBusy ? 'Cropping...' : 'Use photo' }}
+            </button>
+          </div>
         </div>
       </div>
     </transition>
@@ -414,27 +486,6 @@
                   <ion-icon v-if="settings.theme === option.value" class="option-check" :icon="checkmarkCircleOutline" />
                 </button>
               </div>
-            </template>
-
-            <template v-else-if="activePanel === 'language'">
-              <div class="option-list">
-                <button
-                  v-for="option in LANGUAGE_OPTIONS"
-                  :key="option.value"
-                  class="option-row"
-                  :class="{ active: settings.language === option.value }"
-                  type="button"
-                  :disabled="settingsSaving"
-                  @click="setLanguage(option.value)"
-                >
-                  <span class="option-copy">
-                    <strong>{{ option.label }}</strong>
-                    <small>{{ option.locale }}</small>
-                  </span>
-                  <ion-icon v-if="settings.language === option.value" class="option-check" :icon="checkmarkCircleOutline" />
-                </button>
-              </div>
-              <p class="panel-hint">Dates, numbers and summaries use this language across the app.</p>
             </template>
 
             <template v-else-if="activePanel === 'privacy'">
@@ -504,7 +555,7 @@
                 <h3>5. Ending your account</h3>
                 <p>You can delete your account at any time from Privacy and security. Deletion removes your profile and synced records.</p>
                 <h3>6. Contact</h3>
-                <p>Questions about these terms can be sent to support@nutrifit.app.</p>
+                <p>Questions about these terms can be sent to thenutrifitcom@gmail.com.</p>
               </div>
             </template>
 
@@ -608,7 +659,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { IonPage, IonContent } from '@ionic/vue';
@@ -619,7 +670,6 @@ import {
   settingsOutline,
   notificationsOutline,
   moonOutline,
-  languageOutline,
   shieldCheckmarkOutline,
   helpCircleOutline,
   documentTextOutline,
@@ -632,17 +682,16 @@ import {
   checkmarkCircleOutline,
   chevronDownOutline,
   cameraOutline,
+  imageOutline,
 } from 'ionicons/icons';
 import { useAuth } from '../composables/useAuth';
 import { useUserData } from '../composables/useUserData';
 import { useSession } from '../composables/useSession';
 import { updatePassword } from '../services/auth';
 import {
-  LANGUAGE_OPTIONS,
   NOTIFICATION_ITEMS,
   THEME_OPTIONS,
   getLocale,
-  languageLabel,
   themeLabel,
 } from '../services/preferences';
 import {
@@ -690,6 +739,20 @@ const saving = ref(false);
 const formError = ref('');
 const form = ref({});
 
+const avatarInput = ref(null);
+const showPhotoPermission = ref(false);
+const photoProcessing = ref(false);
+
+const showCropper = ref(false);
+const cropSource = ref('');
+const cropImageRef = ref(null);
+const cropViewportRef = ref(null);
+const cropMeta = ref(null);
+const cropZoom = ref(1);
+const cropOffset = ref({ x: 0, y: 0 });
+const cropBusy = ref(false);
+const cropDrag = ref(null);
+
 const openEditorDropdown = ref(null);
 const toggleEditorDropdown = (name) => {
   openEditorDropdown.value = openEditorDropdown.value === name ? null : name;
@@ -732,8 +795,8 @@ const passwordSaving = ref(false);
 const passwordError = ref('');
 const passwordSuccess = ref('');
 
-watch([showEditor, activePanel, showSignOutConfirm, showDeleteConfirm, showSignOutEverywhereConfirm], ([editor, panel, signOutModal, deleteModal, signOutEverywhereModal]) => {
-  setProfileModalOpen(Boolean(editor || panel || signOutModal || deleteModal || signOutEverywhereModal));
+watch([showEditor, activePanel, showSignOutConfirm, showDeleteConfirm, showSignOutEverywhereConfirm, showPhotoPermission, showCropper], ([editor, panel, signOutModal, deleteModal, signOutEverywhereModal, photoPrompt, cropper]) => {
+  setProfileModalOpen(Boolean(editor || panel || signOutModal || deleteModal || signOutEverywhereModal || photoPrompt || cropper));
   if (!editor) openEditorDropdown.value = null;
 });
 
@@ -792,7 +855,6 @@ const syncDetail = computed(() => {
 const PANEL_META = {
   notifications: { kicker: 'Preferences', title: 'Notifications' },
   theme: { kicker: 'Preferences', title: 'Theme' },
-  language: { kicker: 'Preferences', title: 'Language' },
   privacy: { kicker: 'Account', title: 'Privacy and security' },
   terms: { kicker: 'Support', title: 'Terms and conditions' },
   policy: { kicker: 'Support', title: 'Privacy Policy' },
@@ -843,24 +905,197 @@ const setTheme = (theme) => {
   applySettings({ theme });
 };
 
-const setLanguage = (language) => {
-  if (settings.value.language === language) return;
-  applySettings({ language });
+const PHOTO_PRIMER_KEY = 'nutrifit:photo-primer-seen';
+let photoPrimerSeen = false;
+try {
+  photoPrimerSeen = localStorage.getItem(PHOTO_PRIMER_KEY) === '1';
+} catch {
+  // Storage can be unavailable; the primer then shows on every upload.
+}
+
+const openAvatarPicker = () => avatarInput.value?.click();
+
+const requestPhotoAccess = () => {
+  if (photoPrimerSeen) {
+    openAvatarPicker();
+    return;
+  }
+  showPhotoPermission.value = true;
+};
+
+const allowPhotoAccess = () => {
+  showPhotoPermission.value = false;
+  photoPrimerSeen = true;
+  try {
+    localStorage.setItem(PHOTO_PRIMER_KEY, '1');
+  } catch {
+    // Ignore storage failures.
+  }
+  openAvatarPicker();
+};
+
+const dismissPhotoPermission = () => {
+  showPhotoPermission.value = false;
 };
 
 const handleAvatarFile = (event) => {
   const file = event.target.files?.[0];
+  // Reset so the same photo can be picked again after cancelling the cropper.
+  event.target.value = '';
   if (!file) return;
+
   if (!file.type.startsWith('image/')) {
     formError.value = 'Please select a valid image file.';
     return;
   }
+
+  if (file.size > 15 * 1024 * 1024) {
+    formError.value = 'That photo is too large. Choose an image under 15 MB.';
+    return;
+  }
+
+  formError.value = '';
+  photoProcessing.value = true;
+
   const reader = new FileReader();
-  reader.onload = (e) => {
-    form.value.avatarUrl = String(e.target?.result || '');
+  reader.onload = async (e) => {
+    photoProcessing.value = false;
+    const src = String(e.target?.result || '');
+    if (!src) {
+      formError.value = 'Could not read that photo. Please try another image.';
+      return;
+    }
+    cropSource.value = src;
+    cropZoom.value = 1;
+    cropOffset.value = { x: 0, y: 0 };
+    cropMeta.value = null;
+    showCropper.value = true;
+    await nextTick();
+  };
+  reader.onerror = () => {
+    photoProcessing.value = false;
+    formError.value = 'Could not read that photo. Please try another image.';
   };
   reader.readAsDataURL(file);
 };
+
+const clampCropOffset = () => {
+  const meta = cropMeta.value;
+  if (!meta) return;
+  const maxX = Math.max(0, (meta.baseW * cropZoom.value - meta.boxW) / 2);
+  const maxY = Math.max(0, (meta.baseH * cropZoom.value - meta.boxH) / 2);
+  cropOffset.value = {
+    x: Math.min(maxX, Math.max(-maxX, cropOffset.value.x)),
+    y: Math.min(maxY, Math.max(-maxY, cropOffset.value.y)),
+  };
+};
+
+const cropImageStyle = computed(() => {
+  const meta = cropMeta.value;
+  if (!meta) return { opacity: 0 };
+  return {
+    width: `${meta.baseW}px`,
+    height: `${meta.baseH}px`,
+    transform: `translate(-50%, -50%) translate(${cropOffset.value.x}px, ${cropOffset.value.y}px) scale(${cropZoom.value})`,
+  };
+});
+
+const onCropImageLoad = () => {
+  const img = cropImageRef.value;
+  const box = cropViewportRef.value;
+  if (!img || !box) return;
+
+  const boxW = box.clientWidth;
+  const boxH = box.clientHeight;
+  const coverScale = Math.max(boxW / img.naturalWidth, boxH / img.naturalHeight);
+  cropMeta.value = {
+    w: img.naturalWidth,
+    h: img.naturalHeight,
+    boxW,
+    boxH,
+    baseW: img.naturalWidth * coverScale,
+    baseH: img.naturalHeight * coverScale,
+  };
+  clampCropOffset();
+};
+
+const onCropPointerDown = (event) => {
+  if (!cropMeta.value) return;
+  cropDrag.value = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    originX: cropOffset.value.x,
+    originY: cropOffset.value.y,
+  };
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+};
+
+const onCropPointerMove = (event) => {
+  const drag = cropDrag.value;
+  if (!drag) return;
+  cropOffset.value = {
+    x: drag.originX + (event.clientX - drag.startX),
+    y: drag.originY + (event.clientY - drag.startY),
+  };
+  clampCropOffset();
+};
+
+const onCropPointerUp = () => {
+  cropDrag.value = null;
+};
+
+const cancelCrop = () => {
+  if (cropBusy.value) return;
+  showCropper.value = false;
+  cropSource.value = '';
+  cropMeta.value = null;
+  cropDrag.value = null;
+};
+
+const applyCrop = () => {
+  const img = cropImageRef.value;
+  const box = cropViewportRef.value;
+  const meta = cropMeta.value;
+  if (!img || !box || !meta || cropBusy.value) return;
+
+  cropBusy.value = true;
+  try {
+    const viewport = box.getBoundingClientRect();
+    const image = img.getBoundingClientRect();
+    const scaleX = meta.w / image.width;
+    const scaleY = meta.h / image.height;
+
+    const sx = Math.max(0, (viewport.left - image.left) * scaleX);
+    const sy = Math.max(0, (viewport.top - image.top) * scaleY);
+    const sw = Math.min(meta.w - sx, viewport.width * scaleX);
+    const sh = Math.min(meta.h - sy, viewport.height * scaleY);
+
+    if (sw <= 0 || sh <= 0) {
+      formError.value = 'Could not crop that photo. Please try another image.';
+      return;
+    }
+
+    const size = 400;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d');
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
+
+    form.value.avatarUrl = canvas.toDataURL('image/jpeg', 0.85);
+    showCropper.value = false;
+    cropSource.value = '';
+    cropMeta.value = null;
+    cropDrag.value = null;
+    formError.value = '';
+  } finally {
+    cropBusy.value = false;
+  }
+};
+
+watch(cropZoom, clampCropOffset);
 
 const openEditor = () => {
   form.value = { ...profile.value, avatarUrl: avatarUrl.value || '' };
@@ -1438,6 +1673,7 @@ const confirmDeleteAccount = async () => {
   }
 
   .profile-modal-card {
+    position: relative;
     width: min(100%, 640px);
     max-height: calc(100vh - 2rem);
     overflow-y: auto;
@@ -2350,5 +2586,139 @@ const confirmDeleteAccount = async () => {
     font-size: 0.44rem;
     margin-top: 0.2rem;
     display: block;
+  }
+
+  .avatar-processing {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+    color: var(--muted);
+    font-size: 0.5rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .avatar-processing-spinner {
+    width: 0.75rem;
+    height: 0.75rem;
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    border-top-color: var(--white);
+    border-radius: 50%;
+    animation: profileSpin 0.7s linear infinite;
+  }
+
+  /* Profile save loading state */
+  .profile-loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    padding: 1rem;
+    border-radius: inherit;
+    background: rgba(5, 5, 5, 0.84);
+    backdrop-filter: blur(9px);
+    text-align: center;
+  }
+
+  .profile-spinner {
+    width: 2.4rem;
+    height: 2.4rem;
+    border: 2px solid rgba(255, 255, 255, 0.18);
+    border-top-color: var(--white);
+    border-radius: 50%;
+    animation: profileSpin 0.8s linear infinite;
+  }
+
+  .profile-loading-overlay strong {
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .profile-loading-overlay small {
+    color: var(--muted);
+    font-size: 0.55rem;
+  }
+
+  @keyframes profileSpin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Crop photo */
+  .crop-card {
+    width: min(100%, 420px);
+  }
+
+  .crop-stage {
+    display: flex;
+    justify-content: center;
+    padding: 1rem 0 0.8rem;
+  }
+
+  .crop-viewport {
+    position: relative;
+    width: min(300px, calc(100vw - 5rem));
+    aspect-ratio: 1;
+    overflow: hidden;
+    border: 1px solid var(--line-strong);
+    border-radius: 0.85rem;
+    background: #050505;
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+  }
+
+  .crop-viewport:active {
+    cursor: grabbing;
+  }
+
+  .crop-image {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    max-width: none;
+    pointer-events: none;
+    transform-origin: center;
+    transition: opacity 0.2s var(--ease);
+  }
+
+  .crop-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, transparent 33.2%, rgba(255, 255, 255, 0.28) 33.3%, transparent 33.4%, transparent 66.5%, rgba(255, 255, 255, 0.28) 66.6%, transparent 66.7%),
+      linear-gradient(to bottom, transparent 33.2%, rgba(255, 255, 255, 0.28) 33.3%, transparent 33.4%, transparent 66.5%, rgba(255, 255, 255, 0.28) 66.6%, transparent 66.7%);
+  }
+
+  .crop-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0 0.15rem;
+  }
+
+  .crop-controls span {
+    color: var(--dim);
+    font-size: 0.46rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .crop-controls input[type="range"] {
+    flex: 1;
+    accent-color: var(--white);
+  }
+
+  .crop-hint {
+    margin-top: 0.55rem;
   }
 </style>
