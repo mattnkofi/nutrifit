@@ -65,3 +65,19 @@ jobs:
           prerelease: false
           generate_release_notes: false
           files: android/app/build/outputs/apk/debug/NutriFit.apk
+
+      # GitHub Actions artifacts are ALWAYS zipped by GitHub and cannot be made
+      # a raw .apk. The Release asset above is the real APK. Surface a direct
+      # download link so it's the obvious thing to click.
+      - name: Add APK download link to job summary
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "## 📱 NutriFit APK" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the raw APK (not a zip):" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "[NutriFit.apk](https://github.com/${{ github.repository }}/releases/download/nutrifit-${{ github.run_number }}/NutriFit.apk)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Always-latest link:" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "[Download latest NutriFit.apk](https://github.com/${{ github.repository }}/releases/latest/download/NutriFit.apk)" >> "$GITHUB_STEP_SUMMARY"
