@@ -66,8 +66,11 @@ onMounted(() => {
 
 <style scoped>
   .callback-page {
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
     min-height: 100vh;
     min-height: 100dvh;
     padding: 1.5rem var(--page-x);
@@ -80,6 +83,7 @@ onMounted(() => {
     justify-items: center;
     gap: 0.75rem;
     width: min(420px, 100%);
+    margin: 0 auto;
     padding: 2rem 1.5rem;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 1.25rem;
