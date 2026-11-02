@@ -189,7 +189,7 @@
               <div>
                 <p>YouTube video guides</p>
                 <small>Find videos to check your form, pace and setup.</small>
-                <a class="text-btn" :href="videoSearchUrl" target="_blank" rel="noopener">
+                <a v-if="!isNative" class="text-btn" :href="videoSearchUrl" target="_blank" rel="noopener">
                   Search YouTube <ion-icon :icon="openOutline" />
                 </a>
               </div>
@@ -228,7 +228,14 @@
                 <div class="video-text">
                   <p class="video-title">{{ t.title }}</p>
                   <p class="video-channel">{{ t.channel }}</p>
-                  <a class="video-open-link" :href="t.watchUrl" target="_blank" rel="noopener" @click.stop>
+                  <a
+                    v-if="!isNative"
+                    class="video-open-link"
+                    :href="t.watchUrl"
+                    target="_blank"
+                    rel="noopener"
+                    @click.stop
+                  >
                     Open in YouTube <ion-icon :icon="openOutline" />
                   </a>
                 </div>
@@ -255,6 +262,7 @@
 <script setup>
 import { ref, watch, computed, onUnmounted } from 'vue';
 import { IonModal, IonHeader, IonToolbar, IonContent } from '@ionic/vue';
+import { Capacitor } from '@capacitor/core';
 import VideoPlayerModal from './VideoPlayerModal.vue';
 import {
   addOutline,
@@ -277,6 +285,10 @@ import { useSession } from '../composables/useSession';
 import { modalEnterAnimation, modalLeaveAnimation } from '../utils/modalAnimations';
 
 const { setDetailOpen } = useSession();
+
+// On native, videos are played inside the app. External YouTube links would
+// hand playback off to the YouTube app, so they are only offered on the web.
+const isNative = Capacitor.isNativePlatform();
 
 const props = defineProps({
   isOpen: Boolean,

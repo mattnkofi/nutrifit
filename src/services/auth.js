@@ -35,18 +35,32 @@ export const authRedirectUrl = (path = '/auth') => {
   return new URL(path, window.location.origin).toString();
 };
 
-// Where Supabase should send the user after clicking an email link or
-// finishing Google sign-in. On native this is the HTTPS callback page, which
-// forwards the result into the installed app via the custom scheme.
+// Every native auth flow (email confirmation, Google sign-in, password
+// recovery) lands on this HTTPS page first. Mail apps and in-app browsers
+// handle custom URL schemes inconsistently, so the page paints a real
+// confirmation screen and forwards the result to the installed app. If the
+// automatic handoff is blocked, the visible "Open NutriFit" button still works.
+export const authNativeRedirectUrl = (flow = '') => {
+  const suffix = flow === 'recovery' ? '?flow=recovery' : '';
+  return `${publicAppUrl()}/auth/callback${suffix}`;
+};
+
 export const authEmailRedirectUrl = () => {
-  if (Capacitor.isNativePlatform()) return `${publicAppUrl()}/auth/callback`;
+  if (Capacitor.isNativePlatform()) return authNativeRedirectUrl();
   return authRedirectUrl('/auth');
 };
 
-// Password recovery needs a marker because Supabase's PKCE redirect only
-// carries the one-time code, not the original "recovery" type.
+// Google sign-in runs in a Chrome Custom Tab (a separate browser context from
+// the app's WebView), so it uses the same HTTPS hop as the email links.
+export const authOAuthRedirectUrl = () => {
+  if (Capacitor.isNativePlatform()) return authNativeRedirectUrl();
+  return authRedirectUrl('/auth');
+};
+
+// Password recovery needs a marker because the redirect only carries the
+// session tokens, not the original "recovery" type.
 export const authRecoveryRedirectUrl = () => {
-  if (Capacitor.isNativePlatform()) return `${publicAppUrl()}/auth/callback?flow=recovery`;
+  if (Capacitor.isNativePlatform()) return authNativeRedirectUrl('recovery');
   return authRedirectUrl('/auth');
 };
 
@@ -117,7 +131,7 @@ export async function signInWithGoogle({ redirectTo = '/auth' } = {}) {
     provider: 'google',
     options: {
       redirectTo: Capacitor.isNativePlatform()
-        ? authEmailRedirectUrl()
+        ? authOAuthRedirectUrl()
         : authRedirectUrl(redirectTo),
       skipBrowserRedirect: Capacitor.isNativePlatform(),
       queryParams: { prompt: 'select_account' },

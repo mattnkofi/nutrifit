@@ -4,6 +4,7 @@ import { isAuthConfigured } from '../services/auth';
 import LandingPage from '../views/LandingPage.vue';
 import AuthPage from '../views/AuthPage.vue';
 import AuthCallbackPage from '../views/AuthCallbackPage.vue';
+import EmbedPage from '../views/EmbedPage.vue';
 import DashboardPage from '../views/DashboardPage.vue';
 import WorkoutsPage from '../views/WorkoutsPage.vue';
 import ScannerPage from '../views/ScannerPage.vue';
@@ -16,6 +17,7 @@ const routes = [
   { path: '/landing', name: 'landing', component: LandingPage },
   { path: '/auth', name: 'auth', component: AuthPage },
   { path: '/auth/callback', name: 'auth-callback', component: AuthCallbackPage },
+  { path: '/embed/:videoId', name: 'embed', component: EmbedPage },
   { path: '/dashboard', name: 'dashboard', component: DashboardPage },
   { path: '/workouts', name: 'workouts', component: WorkoutsPage },
   { path: '/scanner', name: 'scanner', component: ScannerPage },
@@ -35,9 +37,13 @@ const router = createRouter({
   },
 });
 
-const PUBLIC_ROUTES = new Set(['landing', 'auth', 'auth-callback']);
+const PUBLIC_ROUTES = new Set(['landing', 'auth', 'auth-callback', 'embed']);
 
 router.beforeEach(async (to) => {
+  // The embed page is loaded inside an iframe by the native video player. It
+  // must render instantly, without auth checks or session restoration.
+  if (to.name === 'embed') return true;
+
   // Without Supabase credentials the app stays usable in demo mode.
   if (!isAuthConfigured) return true;
 

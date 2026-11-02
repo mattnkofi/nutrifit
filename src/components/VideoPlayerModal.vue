@@ -24,28 +24,12 @@
         </header>
 
         <div class="vp-frame">
-          <button
-            v-if="isNative"
-            class="vp-native-play"
-            type="button"
-            @click="playOnYouTube"
-          >
-            <img
-              v-if="displayVideo.thumbnail && !displayVideo.thumbnailError"
-              :src="displayVideo.thumbnail"
-              :alt="displayVideo.title || 'Video thumbnail'"
-            />
-            <span class="vp-play-badge"><ion-icon :icon="playCircleOutline" /></span>
-            <span class="vp-play-label">Play on YouTube</span>
-          </button>
-
           <iframe
-            v-else
             :src="embedUrl"
             :title="displayVideo.title || 'YouTube video'"
             frameborder="0"
             referrerpolicy="strict-origin-when-cross-origin"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
             allowfullscreen
             webkitallowfullscreen
             mozallowfullscreen
@@ -53,7 +37,7 @@
         </div>
 
         <footer class="vp-foot">
-          <a class="vp-link" :href="watchUrl" target="_blank" rel="noopener">
+          <a v-if="!isNative" class="vp-link" :href="watchUrl" target="_blank" rel="noopener">
             Open in YouTube <ion-icon :icon="openOutline" />
           </a>
           <span class="vp-note">Press Esc to close</span>
@@ -65,10 +49,9 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
-import { closeOutline, openOutline, playCircleOutline } from 'ionicons/icons';
-import { getEmbedUrl, getWatchUrl } from '../services/youtube';
+import { closeOutline, openOutline } from 'ionicons/icons';
+import { getEmbedRelayUrl, getEmbedUrl, getWatchUrl } from '../services/youtube';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -77,9 +60,10 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
-// YouTube embeds frequently fail inside the Android WebView (Error 153 or a
-// blank frame because the request has no usable referrer). Native builds hand
-// playback to the YouTube app instead of fighting the iframe.
+// YouTube blocks embeds served from the WebView's https://localhost origin
+// with Error 153. Native builds load a small HTTPS relay page on the deployed
+// web origin, which embeds YouTube with a valid referrer, so playback stays
+// inside the app. The web build embeds YouTube directly.
 const isNative = Capacitor.isNativePlatform();
 
 // Kept separate from props.video so the player doesn't blank out mid-exit
@@ -88,18 +72,17 @@ const displayVideo = ref(null);
 const closeButton = ref(null);
 let lastFocused = null;
 
-const embedUrl = computed(() => (displayVideo.value?.id ? getEmbedUrl(displayVideo.value.id) : ''));
+const embedUrl = computed(() => {
+  const videoId = displayVideo.value?.id;
+  if (!videoId) return '';
+  return isNative ? getEmbedRelayUrl(videoId) : getEmbedUrl(videoId);
+});
 const watchUrl = computed(() => {
   if (displayVideo.value?.watchUrl) return displayVideo.value.watchUrl;
   return displayVideo.value?.id ? getWatchUrl(displayVideo.value.id) : 'https://www.youtube.com';
 });
 
 const close = () => emit('close');
-
-const playOnYouTube = async () => {
-  await Browser.open({ url: watchUrl.value });
-  close();
-};
 
 const onKeydown = (event) => {
   if (event.key !== 'Escape' || !props.isOpen) return;
@@ -224,58 +207,6 @@ watch(
     width: 100%;
     height: 100%;
     border: 0;
-  }
-
-  .vp-native-play {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    width: 100%;
-    height: 100%;
-    padding: 0;
-    border: 0;
-    background: #000;
-    color: #fff;
-    cursor: pointer;
-  }
-
-  .vp-native-play img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0.55;
-    object-fit: cover;
-  }
-
-  .vp-play-badge {
-    position: relative;
-    z-index: 1;
-    display: grid;
-    place-items: center;
-    width: 4rem;
-    height: 4rem;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    font-size: 2.4rem;
-  }
-
-  .vp-play-label {
-    position: absolute;
-    z-index: 1;
-    bottom: 0.9rem;
-    left: 50%;
-    padding: 0.35rem 0.75rem;
-    transform: translateX(-50%);
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.65);
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    white-space: nowrap;
   }
 
   .vp-foot {

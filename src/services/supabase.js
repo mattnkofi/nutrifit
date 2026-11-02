@@ -16,7 +16,13 @@ const isAuthCallbackPage =
 export const supabase = supabaseUrl && supabaseAnonKey
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        flowType: 'pkce',
+        // On the web PKCE keeps the one-time code bound to this browser.
+        // In the native app the auth flow runs in a Custom Tab (a different
+        // browser context), so the PKCE verifier stored in the WebView cannot
+        // be used reliably. The native app therefore uses the implicit flow
+        // and receives the session tokens through the app deep link, which is
+        // then applied with setSession().
+        flowType: isNative ? 'implicit' : 'pkce',
         detectSessionInUrl: !isNative && !isAuthCallbackPage,
       },
     })

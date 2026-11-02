@@ -1,7 +1,7 @@
 <template>
   <ion-app>
     <!-- Cinematic Intro & Loading Screen (Plays Every Time App Opens) -->
-    <div v-if="isLoading" class="app-intro-loader" :class="{ 'fade-out': isFadingOut }" aria-live="polite">
+    <div v-if="isLoading && !skipIntro" class="app-intro-loader" :class="{ 'fade-out': isFadingOut }" aria-live="polite">
       <div class="intro-backdrop-glow"></div>
       <div class="intro-content">
         <div class="intro-logo-card">
@@ -43,7 +43,24 @@ const route = useRoute();
 const router = useRouter();
 const { authError, isAuthenticated, isPasswordRecovery, postAuthRedirect } = useAuth();
 
+const routeName = computed(() => {
+  const name = route.name;
+  if (Array.isArray(name)) return name[0];
+  return name;
+});
+
+const isEmbedRoute = computed(() => routeName.value === 'embed');
+
+// The auth callback and embed screens must paint immediately: the callback
+// forwards into the app after a short delay, and the embed page is an iframe.
+const skipIntro = computed(() => isEmbedRoute.value || routeName.value === 'auth-callback');
+
 onMounted(() => {
+  if (skipIntro.value) {
+    isLoading.value = false;
+    return;
+  }
+
   // Play cinematic intro animation every time app opens
   window.setTimeout(() => {
     isFadingOut.value = true;
@@ -53,20 +70,16 @@ onMounted(() => {
   }, 1300);
 });
 
-const routeName = computed(() => {
-  const name = route.name;
-  if (Array.isArray(name)) return name[0];
-  return name;
-});
-
-// Original: hidden on landing and auth routes, shown on authenticated tabs
+// Original: hidden on landing, auth and embed routes, shown on authenticated tabs
 const showNav = computed(
-  () => !['landing', 'auth', 'auth-callback'].includes(routeName.value)
+  () => !['landing', 'auth', 'auth-callback', 'embed'].includes(routeName.value)
 );
 
-// The auth and callback screens have their own full-height layouts, so the
-// global header is hidden there.
-const showHeader = computed(() => !['auth', 'auth-callback'].includes(routeName.value));
+// The auth, callback and embed screens have their own full-height layouts, so
+// the global header is hidden there.
+const showHeader = computed(
+  () => !['auth', 'auth-callback', 'embed'].includes(routeName.value)
+);
 
 // A deep link (email confirmation or Google sign-in) can complete while the app
 // is sitting on the landing page. Move the user into the app as soon as the

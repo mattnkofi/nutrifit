@@ -1,3 +1,20 @@
+const FALLBACK_PUBLIC_APP_URL = 'https://nutrifit-active.vercel.app';
+
+// Origin of the deployed web app. The native WebView runs on
+// https://localhost, which YouTube does not accept as an embed origin
+// (Error 153), so the app plays videos through a page hosted on this origin.
+export function publicAppOrigin() {
+  const configured = String(import.meta.env.VITE_PUBLIC_APP_URL || '').trim();
+  if (configured) return configured.replace(/\/+$/, '');
+
+  if (typeof window !== 'undefined' && /^https?:$/.test(window.location.protocol)) {
+    const { hostname } = window.location;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') return window.location.origin;
+  }
+
+  return FALLBACK_PUBLIC_APP_URL;
+}
+
 export function getEmbedUrl(videoId) {
   const params = new URLSearchParams({
     autoplay: '1',
@@ -14,6 +31,13 @@ export function getEmbedUrl(videoId) {
   }
 
   return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+}
+
+// The native app embeds this HTTPS page instead of YouTube directly. The page
+// lives on the public web origin, so the YouTube player receives a valid
+// referrer and does not fail with Error 153.
+export function getEmbedRelayUrl(videoId) {
+  return `${publicAppOrigin()}/embed/${encodeURIComponent(videoId)}`;
 }
 
 export function getWatchUrl(videoId) {
