@@ -50,9 +50,11 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --console=plain
+          mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/NutriFit.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: NutriFit
+          path: android/app/build/outputs/apk/debug/NutriFit.apk
+          if-no-files-found: error
