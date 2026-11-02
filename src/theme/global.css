@@ -86,30 +86,6 @@
   --ion-text-color-rgb: 255, 255, 255;
 }
 
-[data-theme='light'] {
-  --bg: #f8fafc;
-  --bg-soft: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #f1f5f9;
-  --surface-3: #e2e8f0;
-  --line: rgba(0, 0, 0, 0.08);
-  --line-strong: rgba(0, 0, 0, 0.16);
-  --text: #0f172a;
-  --text-soft: #334155;
-  --muted: #475569;
-  --dim: #64748b;
-  --ion-background-color: #f8fafc;
-  --ion-background-color-rgb: 248, 250, 252;
-  --ion-text-color: #0f172a;
-  --ion-text-color-rgb: 15, 23, 42;
-  --ion-color-primary: #0f172a;
-  --ion-color-primary-rgb: 15, 23, 42;
-  --ion-color-primary-contrast: #ffffff;
-  --ion-color-primary-contrast-rgb: 255, 255, 255;
-  --ion-color-primary-shade: #090d1a;
-  --ion-color-primary-tint: #1e293b;
-}
-
 html,
 body,
 #app {

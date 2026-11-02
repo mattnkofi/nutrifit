@@ -73,7 +73,7 @@ const goTo = (path) => router.push(path);
     top: 0;
     left: 0;
     right: 0;
-    --background: rgba(5, 5, 5, 0.92);
+    --background: rgba(var(--ion-background-color-rgb, 5, 5, 5), 0.92);
     --border-color: transparent;
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
@@ -142,7 +142,7 @@ const goTo = (path) => router.push(path);
     letter-spacing: 0.04em;
     line-height: 1;
     text-transform: uppercase;
-    color: var(--white);
+    color: var(--text);
   }
 
   .brand-sub {
@@ -172,12 +172,12 @@ const goTo = (path) => router.push(path);
     padding: 0.24rem 0.82rem 0.24rem 0.24rem;
     border: 1px solid var(--line-strong);
     border-radius: 11px;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03));
+    background: var(--surface-2);
     color: var(--text);
     font-family: var(--font-body);
     cursor: pointer;
     overflow: hidden;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 6px 18px rgba(0, 0, 0, 0.32);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
     transition: color 0.35s var(--ease), border-color 0.35s var(--ease), transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease), background-color 0.35s var(--ease);
   }
 
@@ -185,16 +185,16 @@ const goTo = (path) => router.push(path);
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(115deg, transparent 25%, rgba(255, 255, 255, 0.22) 45%, transparent 65%);
+    background: linear-gradient(115deg, transparent 25%, rgba(255, 255, 255, 0.15) 45%, transparent 65%);
     transform: translateX(-130%);
     transition: transform 0.75s var(--ease-out);
     pointer-events: none;
   }
 
   .coach-btn:hover {
-    border-color: rgba(255, 255, 255, 0.42);
+    border-color: var(--ion-color-primary);
     transform: translateY(-1px);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 12px 28px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
   }
 
   .coach-btn:hover::after {
@@ -213,10 +213,10 @@ const goTo = (path) => router.push(path);
     height: 2rem;
     flex: 0 0 auto;
     border-radius: 7px;
-    background: linear-gradient(150deg, #ffffff, #c9c9c9);
-    color: #0a0a0a;
+    background: var(--ion-color-primary);
+    color: var(--ion-color-primary-contrast);
     font-size: 1rem;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   }
 
   .coach-icon ion-icon {
@@ -231,7 +231,7 @@ const goTo = (path) => router.push(path);
     height: 0.5rem;
     border-radius: 50%;
     background: #4ade80;
-    border: 2px solid #111111;
+    border: 2px solid var(--surface);
     box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5);
     animation: coachPing 2.6s var(--ease) infinite;
   }
@@ -245,19 +245,19 @@ const goTo = (path) => router.push(path);
   }
 
   .coach-btn.active {
-    background: var(--white);
-    border-color: var(--white);
-    color: var(--black);
-    box-shadow: 0 10px 26px rgba(255, 255, 255, 0.16);
+    background: var(--ion-color-primary);
+    border-color: var(--ion-color-primary);
+    color: var(--ion-color-primary-contrast);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2);
   }
 
   .coach-btn.active .coach-icon {
-    background: #0a0a0a;
-    color: var(--white);
+    background: var(--ion-color-primary-contrast);
+    color: var(--ion-color-primary);
   }
 
   .coach-btn.active .coach-ping {
-    border-color: var(--white);
+    border-color: var(--ion-color-primary);
   }
 
   .coach-btn.active .coach-icon ion-icon {

@@ -112,7 +112,8 @@ watch(
     display: grid;
     place-items: center;
     padding: clamp(0.75rem, 3vw, 2rem);
-    background: rgba(3, 3, 3, 0.94);
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(12px);
   }
 
   .vp-card {
@@ -125,8 +126,9 @@ watch(
     padding: clamp(0.9rem, 2vw, 1.25rem);
     border: 1px solid var(--line-strong);
     border-radius: 1.25rem;
-    background: #0b0b0d;
-    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.9);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.25);
     will-change: transform, opacity;
   }
 
@@ -147,7 +149,7 @@ watch(
 
   .vp-title {
     margin: 0.2rem 0 0;
-    color: var(--white);
+    color: var(--text);
     font-family: var(--font-display);
     font-size: clamp(0.95rem, 2.2vw, 1.2rem);
     font-weight: 600;
@@ -166,17 +168,17 @@ watch(
     flex-shrink: 0;
     width: 2.2rem;
     height: 2.2rem;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--line-strong);
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--surface-2);
     color: var(--text);
     font-size: 1.05rem;
     transition: background-color 0.2s ease, border-color 0.2s ease;
   }
 
   .vp-close:hover {
-    background: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.28);
+    background: var(--surface-3);
+    border-color: var(--ion-color-primary);
   }
 
   .vp-frame {
@@ -217,7 +219,7 @@ watch(
   }
 
   .vp-link:hover {
-    color: var(--white);
+    color: var(--ion-color-primary);
   }
 
   .vp-note {

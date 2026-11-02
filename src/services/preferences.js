@@ -8,7 +8,6 @@ export const THEME_OPTIONS = [
   { value: 'dark', label: 'Dark', hint: 'Deep black, the default NutriFit look.' },
   { value: 'dim', label: 'Dim', hint: 'Softer charcoal surfaces for low light.' },
   { value: 'contrast', label: 'High contrast', hint: 'Brighter lines and text for readability.' },
-  { value: 'light', label: 'Light', hint: 'Clean bright surfaces for daylight use.' },
 ];
 
 export const LANGUAGE_OPTIONS = [

@@ -54,28 +54,16 @@ const goTo = (path) => {
     bottom: 0;
     z-index: 2147483647;
     width: 100%;
-    background: rgba(7, 7, 7, 0.72);
+    background: rgba(var(--ion-background-color-rgb, 7, 7, 7), 0.88);
     backdrop-filter: blur(26px) saturate(1.18);
     -webkit-backdrop-filter: blur(26px) saturate(1.18);
-    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    border-top: 1px solid var(--line-strong);
     display: block;
     padding-bottom: calc(env(safe-area-inset-bottom, 0) + 1px);
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
     isolation: isolate;
     transition: transform 0.32s var(--ease-out), opacity 0.24s var(--ease);
-  }
-
-  .tab-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0;
-    padding: 0.25rem max(var(--page-x), 1rem) 0.3rem;
-    height: 3.4rem;
-    background: transparent;
-    max-width: 100%;
-    margin: 0 auto;
   }
 
   .tab-bar {
@@ -115,13 +103,13 @@ const goTo = (path) => {
   }
 
   .tab-btn:hover {
-    color: var(--white);
+    color: var(--text);
   }
 
   .tab-btn.active {
-    color: var(--white);
-    background: rgba(255, 255, 255, 0.18);
-    border: 1px solid rgba(255, 255, 255, 0.32);
+    color: var(--ion-color-primary-contrast);
+    background: var(--ion-color-primary);
+    border: 1px solid var(--ion-color-primary);
     border-radius: 0.8rem;
     transform: scale(1);
     padding: 0 0.4rem;
@@ -159,13 +147,13 @@ const goTo = (path) => {
       bottom: auto;
       transform: translateY(-50%);
       width: auto;
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      border: 1px solid var(--line-strong);
       border-radius: 999px;
-      background: rgba(7, 7, 7, 0.6);
+      background: rgba(var(--ion-background-color-rgb, 7, 7, 7), 0.85);
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
       padding-bottom: 0;
-      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.25);
     }
 
     .tab-bar {

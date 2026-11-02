@@ -415,10 +415,8 @@ const send = async () => {
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: 14px;
-  background:
-    radial-gradient(120% 80% at 100% 0%, rgba(255, 255, 255, 0.06), transparent 52%),
-    linear-gradient(168deg, rgba(22, 22, 22, 0.98), rgba(6, 6, 6, 0.99));
-  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  background: var(--surface);
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.25);
   contain: layout paint;
   will-change: transform, opacity;
   transition:
@@ -436,7 +434,7 @@ const send = async () => {
   inset: 0 0 auto 0;
   z-index: 2;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6) 30%, rgba(255, 255, 255, 0.6) 70%, transparent);
+  background: linear-gradient(90deg, transparent, var(--ion-color-primary) 30%, var(--ion-color-primary) 70%, transparent);
   opacity: 0.55;
   pointer-events: none;
 }
@@ -465,7 +463,7 @@ const send = async () => {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.72rem 0.7rem 0.72rem 0.8rem;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.012));
+  background: var(--surface-2);
   border-bottom: 1px solid var(--line);
   flex: 0 0 auto;
 }
@@ -476,7 +474,7 @@ const send = async () => {
   bottom: 0.8rem;
   left: 0;
   width: 2px;
-  background: var(--white);
+  background: var(--ion-color-primary);
   opacity: 0.8;
 }
 .chat-id {
@@ -492,18 +490,18 @@ const send = async () => {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 9px;
-  background: linear-gradient(150deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.05));
-  border: 1px solid var(--line-strong);
-  color: var(--white);
+  background: var(--ion-color-primary);
+  border: 1px solid var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
   font-size: 1.2rem;
   flex: 0 0 auto;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 .avatar-ring {
   position: absolute;
   inset: -3px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--line-strong);
   animation: avatarRing 3.6s var(--ease) infinite;
   pointer-events: none;
 }
@@ -515,7 +513,7 @@ const send = async () => {
   height: 0.66rem;
   border-radius: 50%;
   background: #4ade80;
-  border: 2px solid #141414;
+  border: 2px solid var(--surface);
 }
 .chat-titles {
   display: grid;
@@ -659,18 +657,16 @@ const send = async () => {
   transition: background-color 0.3s var(--ease), border-color 0.3s var(--ease);
 }
 .msg.bot {
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04));
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
   color: var(--text-soft);
   border-top-left-radius: 3px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 .msg.user {
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.11));
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: var(--text);
+  background: var(--ion-color-primary);
+  border: 1px solid var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
   border-top-right-radius: 3px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .msg-content :deep(p) {
@@ -680,7 +676,7 @@ const send = async () => {
   margin-bottom: 0;
 }
 .msg-content :deep(strong) {
-  color: var(--white);
+  color: var(--text);
   font-weight: 600;
 }
 .msg-content :deep(em) {
@@ -700,16 +696,18 @@ const send = async () => {
 .msg-content :deep(code) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: calc(var(--chat-fs) - 0.06rem);
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--surface-3);
   border-radius: 5px;
   padding: 0.06rem 0.3rem;
+  color: var(--text);
 }
 .msg-content :deep(pre) {
   margin: 0.3rem 0;
   padding: 0.55rem 0.65rem;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--surface-2);
   border: 1px solid var(--line);
+  color: var(--text);
   overflow-x: auto;
 }
 .msg-content :deep(pre code) {
@@ -717,7 +715,7 @@ const send = async () => {
   padding: 0;
 }
 .msg-content :deep(.md-h) {
-  color: var(--white);
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -746,6 +744,7 @@ const send = async () => {
   gap: 0.45rem;
   padding: 0.7rem 0.8rem 0.75rem;
   border-top: 1px solid var(--line);
+  background: var(--surface);
   overflow-x: auto;
   scrollbar-width: none;
   flex: 0 0 auto;
@@ -760,9 +759,9 @@ const send = async () => {
   flex: 0 0 auto;
   padding: 0.46rem 0.6rem 0.46rem 0.68rem;
   border: 1px solid var(--line-strong);
-  border-left: 2px solid rgba(255, 255, 255, 0.45);
+  border-left: 2px solid var(--ion-color-primary);
   border-radius: 6px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
+  background: var(--surface-2);
   color: var(--text-soft);
   font-size: var(--chat-chip-fs);
   font-weight: 500;
@@ -777,15 +776,15 @@ const send = async () => {
   transition: color 0.25s var(--ease), transform 0.25s var(--ease-out);
 }
 .chip:hover {
-  border-color: rgba(255, 255, 255, 0.5);
-  border-left-color: var(--white);
-  color: var(--white);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--ion-color-primary);
+  border-left-color: var(--ion-color-primary);
+  color: var(--text);
+  background: var(--surface-3);
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
 }
 .chip:hover ion-icon {
-  color: var(--white);
+  color: var(--ion-color-primary);
   transform: translateX(2px);
 }
 .chip:active {
@@ -798,7 +797,7 @@ const send = async () => {
   gap: 0.5rem;
   padding: 0.7rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom, 0));
   border-top: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(0, 0, 0, 0.25));
+  background: var(--surface);
   flex: 0 0 auto;
 }
 .chat-input textarea {
@@ -807,7 +806,7 @@ const send = async () => {
   min-height: 2.55rem;
   max-height: 92px;
   resize: none;
-  background: rgba(0, 0, 0, 0.38);
+  background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 9px;
   color: var(--text);
@@ -819,31 +818,32 @@ const send = async () => {
   transition: border-color 0.3s var(--ease), background-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
 }
 .chat-input textarea:focus {
-  border-color: rgba(255, 255, 255, 0.42);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 0 3px rgba(255, 255, 255, 0.06);
+  border-color: var(--ion-color-primary);
+  background: var(--surface-3);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 .chat-input textarea::placeholder {
   color: var(--dim);
 }
+
 .chat-send {
   width: 2.55rem;
   height: 2.55rem;
   border: 0;
   border-radius: 9px;
-  background: linear-gradient(150deg, #ffffff, #d2d2d2);
-  color: var(--black);
+  background: var(--ion-color-primary);
+  color: var(--ion-color-primary-contrast);
   display: grid;
   place-items: center;
   font-size: 1.15rem;
   cursor: pointer;
   flex: 0 0 auto;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   transition: transform 0.25s var(--ease-out), opacity 0.25s var(--ease), box-shadow 0.25s var(--ease), filter 0.25s var(--ease);
 }
 .chat-send:hover:not(:disabled) {
   transform: translateY(-1px) scale(1.04);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 8px 22px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
 .chat-send:active:not(:disabled) {
   transform: scale(0.93);
