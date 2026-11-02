@@ -39,6 +39,7 @@ const youtubeUrl = computed(() => {
     modestbranding: '1',
     rel: '0',
     origin: window.location.origin,
+    enablejsapi: '1',
   });
 
   return `https://www.youtube.com/embed/${videoId.value}?${params.toString()}`;
@@ -50,11 +51,15 @@ const youtubeUrl = computed(() => {
     position: fixed;
     inset: 0;
     margin: 0;
+    padding: 0;
     background: #000;
+    overflow: hidden;
   }
 
   .embed-shell iframe {
     display: block;
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     border: 0;

@@ -494,10 +494,11 @@ const signInWithGoogleHandler = async () => {
 
   isGoogleLoading.value = true;
   try {
-    const { data } = await signInWithGoogle({ redirectTo: '/auth' });
+    const result = await signInWithGoogle({ redirectTo: '/auth' });
     if (Capacitor.isNativePlatform()) {
-      if (!data?.url) throw new Error('Google sign-in could not start. Please try again.');
-      await Browser.open({ url: data.url });
+      const url = result?.data?.url || result?.url;
+      if (!url) throw new Error('Google sign-in could not start. Please try again.');
+      await Browser.open({ url });
     }
   } catch (error) {
     handleAuthError(error);

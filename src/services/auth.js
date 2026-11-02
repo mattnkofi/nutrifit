@@ -162,9 +162,16 @@ export async function signInWithGoogle({ redirectTo = '/auth' } = {}) {
           queryParams: { prompt: 'select_account' },
         },
       });
-      return { ...(data || {}), provider: 'google', url: data?.url || fallbackUrl };
+      // Return the same { data, error } shape as supabase-js so callers can
+      // read `data.url` without knowing which branch ran.
+      return {
+        data: { ...(data || {}), provider: 'google', url: data?.url || fallbackUrl },
+        error: null,
+      };
     } catch (error) {
-      if (fallbackUrl) return { provider: 'google', url: fallbackUrl };
+      if (fallbackUrl) {
+        return { data: { provider: 'google', url: fallbackUrl }, error: null };
+      }
       throw error;
     }
   }
@@ -177,7 +184,7 @@ export async function signInWithGoogle({ redirectTo = '/auth' } = {}) {
     },
   });
   if (error) throw error;
-  return data;
+  return { data, error: null };
 }
 
 export async function sendPasswordReset(email) {
