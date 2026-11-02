@@ -68,7 +68,7 @@
                   key="primary-action"
                   class="scan-button emphasized-btn"
                   type="button"
-                  @click="cameraActive ? capturePhoto() : capturedImage ? scanFood() : startCamera()"
+                  @click="handlePrimaryAction"
                 >
                   <ion-icon :icon="cameraActive ? cameraOutline : capturedImage ? analyticsOutline : cameraOutline" />
                   {{ cameraActive ? 'Take photo' : capturedImage ? 'Scan meal' : 'Start camera' }}
@@ -101,6 +101,18 @@
               <span class="status-dot"></span>
               <p>{{ statusText }}</p>
               <p v-if="scanError" class="status-error">{{ scanError }}</p>
+            </div>
+
+            <div v-if="cameraPermissionBlocked" class="camera-permission-help">
+              <ion-icon :icon="alertCircleOutline" />
+              <p>
+                Camera access is blocked. Open
+                <strong>Settings → Apps → NutriFit → Permissions → Camera</strong>
+                and choose <strong>Allow</strong>, then try again.
+              </p>
+              <button class="ghost-button permission-retry-btn" type="button" @click="startCamera">
+                Try again
+              </button>
             </div>
           </article>
 
@@ -350,6 +362,30 @@
       </div>
     </transition>
 
+    <!-- Camera permission primer -->
+    <transition name="modal-fade">
+      <div v-if="showCameraPrompt" class="custom-alert-backdrop" @click="dismissCameraPrompt">
+        <div class="custom-alert-card permission-card" @click.stop>
+          <div class="alert-icon-wrap permission-icon-wrap">
+            <ion-icon :icon="cameraOutline" />
+          </div>
+          <h3>Allow camera access</h3>
+          <p>
+            NutriFit uses your camera only to scan meals. Android will ask for
+            permission next — tap <strong>Allow</strong> to continue.
+          </p>
+          <div class="alert-actions">
+            <button class="ghost-button" type="button" @click="dismissCameraPrompt">
+              Not now
+            </button>
+            <button class="scan-button emphasized-btn permission-confirm-btn" type="button" @click="allowCamera">
+              Allow camera
+            </button>
+          </div>
+        </div>
+      </div>
+    </transition>
+
     <!-- Floating Custom Toast Notification Banner -->
     <transition name="toast-center">
       <div v-if="toastMessage" class="custom-toast" :class="toastType">
@@ -395,6 +431,8 @@ const videoRef = ref(null);
 const fileInput = ref(null);
 const stream = ref(null);
 const cameraActive = ref(false);
+const showCameraPrompt = ref(false);
+const cameraPermissionBlocked = ref(false);
 const capturedImage = ref('');
 const statusText = ref('Start the camera or upload a photo of your meal.');
 const showAnalysis = ref(false);
@@ -509,9 +547,75 @@ const cameraConstraints = [
   { audio: false, video: true },
 ];
 
+const CAMERA_PRIMER_KEY = 'nutrifit:camera-primer-seen';
+const hasSeenCameraPrimer = ref(false);
+try {
+  hasSeenCameraPrimer.value = localStorage.getItem(CAMERA_PRIMER_KEY) === '1';
+} catch {
+  // Storage can be unavailable in some webviews; the primer will simply show each time.
+}
+
+const markCameraPrimerSeen = () => {
+  hasSeenCameraPrimer.value = true;
+  try {
+    localStorage.setItem(CAMERA_PRIMER_KEY, '1');
+  } catch {
+    // Ignore storage failures.
+  }
+};
+
+const isCameraPermissionGranted = async () => {
+  try {
+    const status = await navigator.permissions?.query({ name: 'camera' });
+    return status?.state === 'granted';
+  } catch {
+    return false;
+  }
+};
+
+const handlePrimaryAction = () => {
+  if (cameraActive.value) {
+    capturePhoto();
+    return;
+  }
+  if (capturedImage.value) {
+    scanFood();
+    return;
+  }
+  openCameraPermissionPrompt();
+};
+
+const openCameraPermissionPrompt = async () => {
+  capturedImage.value = '';
+  showAnalysis.value = false;
+  cameraPermissionBlocked.value = false;
+
+  if (hasSeenCameraPrimer.value || (await isCameraPermissionGranted())) {
+    await startCamera();
+    return;
+  }
+
+  statusText.value = 'Camera permission is needed to scan your meal.';
+  showCameraPrompt.value = true;
+};
+
+const allowCamera = async () => {
+  showCameraPrompt.value = false;
+  markCameraPrimerSeen();
+  showToast('Requesting camera permission…', 'info');
+  await startCamera();
+};
+
+const dismissCameraPrompt = () => {
+  showCameraPrompt.value = false;
+  statusText.value = 'Camera not started. Upload a photo or tap Start camera to allow access.';
+  showToast('You can allow camera access anytime', 'info');
+};
+
 const startCamera = async () => {
   capturedImage.value = '';
   showAnalysis.value = false;
+  cameraPermissionBlocked.value = false;
 
   if (!navigator.mediaDevices?.getUserMedia) {
     statusText.value = 'Camera is not available. Please upload a photo instead.';
@@ -534,13 +638,15 @@ const startCamera = async () => {
     try {
       stream.value = await navigator.mediaDevices.getUserMedia(constraints);
       cameraActive.value = true;
+      cameraPermissionBlocked.value = false;
+      markCameraPrimerSeen();
       await nextTick();
       if (videoRef.value) {
         videoRef.value.srcObject = stream.value;
         await videoRef.value.play().catch(() => {});
       }
       statusText.value = 'Camera ready. Position your meal and take a photo.';
-      showToast('Camera active', 'success');
+      showToast('Camera permission allowed', 'success');
       return;
     } catch (error) {
       lastError = error;
@@ -549,8 +655,12 @@ const startCamera = async () => {
   }
 
   stopCamera();
-  statusText.value = 'Could not access camera. Please upload a photo instead.';
-  showToast('Camera access denied', 'error');
+  const denied = lastError?.name === 'NotAllowedError' || lastError?.name === 'SecurityError';
+  cameraPermissionBlocked.value = denied;
+  statusText.value = denied
+    ? 'Camera permission was denied. Allow camera access in Android Settings, or upload a photo instead.'
+    : 'Could not access camera. Please upload a photo instead.';
+  showToast(denied ? 'Camera permission denied' : 'Camera unavailable', 'error');
 };
 
 const capturePhoto = () => {
@@ -955,6 +1065,55 @@ onBeforeUnmount(stopCamera);
   .ghost-button:hover {
     border-color: var(--white);
     background: rgba(10, 10, 10, 0.85);
+  }
+
+  .camera-permission-help {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    margin-top: 0.9rem;
+    padding: 0.9rem 1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(248, 113, 113, 0.5);
+    background: radial-gradient(circle at top, rgba(248, 113, 113, 0.18), transparent 70%);
+    text-align: center;
+  }
+
+  .camera-permission-help ion-icon {
+    align-self: center;
+    font-size: 1.6rem;
+    color: #f87171;
+  }
+
+  .camera-permission-help p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.66rem;
+    line-height: 1.7;
+  }
+
+  .camera-permission-help strong {
+    color: var(--white);
+  }
+
+  .permission-retry-btn {
+    align-self: center;
+    flex: 0 0 auto;
+  }
+
+  .permission-card {
+    text-align: center;
+  }
+
+  .permission-icon-wrap {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--white);
+  }
+
+  .permission-confirm-btn {
+    background: linear-gradient(135deg, #ffffff 0%, #dcdcdc 100%) !important;
+    border-color: rgba(255, 255, 255, 1) !important;
+    color: #050505 !important;
   }
 
   /* Smooth Transitions for Buttons */

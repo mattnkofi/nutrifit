@@ -45,4 +45,10 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required for the in-app meal scanner (getUserMedia / WebView camera). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Keep the app installable on devices without a camera; photo upload still works. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 </manifest>
