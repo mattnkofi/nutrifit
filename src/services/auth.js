@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { Capacitor } from '@capacitor/core';
 
 export const isAuthConfigured = Boolean(supabase);
 
@@ -11,7 +12,8 @@ const client = () => {
   return supabase;
 };
 
-const absoluteUrl = (path = '/') => {
+export const authRedirectUrl = (path = '/auth') => {
+  if (Capacitor.isNativePlatform()) return `com.nutrifit.app://${path.replace(/^\/+/, '')}`;
   if (typeof window === 'undefined') return path;
   return new URL(path, window.location.origin).toString();
 };
@@ -50,7 +52,7 @@ export async function signUpWithEmail({ name, email, password }) {
     password,
     options: {
       data: { full_name: String(name || '').trim() },
-      emailRedirectTo: absoluteUrl('/auth'),
+      emailRedirectTo: authRedirectUrl('/auth'),
     },
   });
   if (error) throw error;
@@ -71,7 +73,7 @@ export async function resendConfirmation(email) {
     type: 'signup',
     email: String(email || '').trim(),
     options: {
-      emailRedirectTo: absoluteUrl('/auth'),
+      emailRedirectTo: authRedirectUrl('/auth'),
     },
   });
   if (error) throw error;
@@ -82,7 +84,8 @@ export async function signInWithGoogle({ redirectTo = '/auth' } = {}) {
   const { data, error } = await client().auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: absoluteUrl(redirectTo),
+      redirectTo: authRedirectUrl(redirectTo),
+      skipBrowserRedirect: Capacitor.isNativePlatform(),
       queryParams: { prompt: 'select_account' },
     },
   });
@@ -92,7 +95,7 @@ export async function signInWithGoogle({ redirectTo = '/auth' } = {}) {
 
 export async function sendPasswordReset(email) {
   const { data, error } = await client().auth.resetPasswordForEmail(String(email || '').trim(), {
-    redirectTo: absoluteUrl('/auth'),
+    redirectTo: authRedirectUrl('/auth'),
   });
   if (error) throw error;
   return data;

@@ -278,6 +278,8 @@
 <script setup>
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import nfIconMark from '../assets/nf-icon-mark.png';
 import {
   barbellOutline,
@@ -481,8 +483,10 @@ const signInWithGoogleHandler = async () => {
 
   isGoogleLoading.value = true;
   try {
-    await signInWithGoogle({ redirectTo: '/auth' });
-    // Supabase redirects the browser to Google here.
+    const { data } = await signInWithGoogle({ redirectTo: '/auth' });
+    if (Capacitor.isNativePlatform() && data?.url) {
+      await Browser.open({ url: data.url });
+    }
   } catch (error) {
     handleAuthError(error);
     isGoogleLoading.value = false;

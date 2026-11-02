@@ -1,4 +1,6 @@
 import { computed, ref } from 'vue';
+import { App } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
 import { supabase } from '../services/supabase';
 import {
   deleteAccount as deleteAccountService,
@@ -20,6 +22,7 @@ const authError = ref('');
 
 let initPromise = null;
 let listenerBound = false;
+let deepLinkListenerBound = false;
 
 const readUrlParams = () => {
   if (typeof window === 'undefined') return new URLSearchParams();
@@ -55,6 +58,37 @@ const bindListener = () => {
   });
 };
 
+const bindDeepLinkListener = () => {
+  if (!supabase || deepLinkListenerBound) return;
+  deepLinkListenerBound = true;
+  App.addListener('appUrlOpen', async ({ url }) => {
+    const callbackUrl = new URL(url);
+    const code = callbackUrl.searchParams.get('code');
+    const callbackParams = new URLSearchParams(callbackUrl.hash.replace(/^#/, ''));
+    const errorDescription =
+      callbackUrl.searchParams.get('error_description') || callbackParams.get('error_description');
+
+    try {
+      if (errorDescription) {
+        authError.value = errorDescription;
+      } else if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+      } else if (callbackParams.get('access_token')) {
+        const { error } = await supabase.auth.setSession({
+          access_token: callbackParams.get('access_token'),
+          refresh_token: callbackParams.get('refresh_token') || '',
+        });
+        if (error) throw error;
+      }
+    } catch (error) {
+      authError.value = error?.message || 'Unable to complete sign-in.';
+    } finally {
+      await Browser.close();
+    }
+  });
+};
+
 export const initAuth = () => {
   if (initPromise) return initPromise;
 
@@ -75,6 +109,7 @@ export const initAuth = () => {
     }
 
     bindListener();
+    bindDeepLinkListener();
     return session.value;
   })();
 

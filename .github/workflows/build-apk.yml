@@ -7,6 +7,9 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-apk:
     runs-on: ubuntu-latest
@@ -52,9 +55,13 @@ jobs:
           ./gradlew assembleDebug --console=plain
           mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/NutriFit.apk
 
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+      - name: Publish APK release asset
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: nutrifit-${{ github.run_number }}
           name: NutriFit
-          path: android/app/build/outputs/apk/debug/NutriFit.apk
-          if-no-files-found: error
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          files: android/app/build/outputs/apk/debug/NutriFit.apk
