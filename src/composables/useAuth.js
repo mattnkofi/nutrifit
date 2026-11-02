@@ -1,7 +1,9 @@
 import { computed, ref } from 'vue';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '../services/supabase';
+import { friendlyAuthError } from '../services/auth';
 import {
   deleteAccount as deleteAccountService,
   getAvatarUrl,
@@ -19,10 +21,15 @@ const user = ref(null);
 const authLoading = ref(true);
 const isPasswordRecovery = ref(false);
 const authError = ref('');
+// Set when a deep link (email confirmation, Google sign-in) completes while
+// the app is on the landing page. App.vue watches this to move the user into
+// the dashboard instead of leaving them stranded.
+const postAuthRedirect = ref(false);
 
 let initPromise = null;
 let listenerBound = false;
 let deepLinkListenerBound = false;
+const handledDeepLinks = new Set();
 
 const readUrlParams = () => {
   if (typeof window === 'undefined') return new URLSearchParams();
@@ -40,7 +47,7 @@ const initialRedirectError = (() => {
   if (!error) return '';
   return initialParams.get('error_description') || error;
 })();
-if (initialParams.get('type') === 'recovery') {
+if (initialParams.get('type') === 'recovery' || initialParams.get('flow') === 'recovery') {
   isPasswordRecovery.value = true;
 }
 
@@ -58,36 +65,99 @@ const bindListener = () => {
   });
 };
 
-const bindDeepLinkListener = () => {
-  if (!supabase || deepLinkListenerBound) return;
-  deepLinkListenerBound = true;
-  App.addListener('appUrlOpen', async ({ url }) => {
-    const callbackUrl = new URL(url);
-    const code = callbackUrl.searchParams.get('code');
-    const callbackParams = new URLSearchParams(callbackUrl.hash.replace(/^#/, ''));
-    const errorDescription =
-      callbackUrl.searchParams.get('error_description') || callbackParams.get('error_description');
+const parseAuthUrl = (rawUrl) => {
+  const url = new URL(rawUrl);
+  const search = new URLSearchParams(url.search);
+  const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
+  const get = (key) => hash.get(key) || search.get(key);
+  return { url, search, hash, get };
+};
 
-    try {
-      if (errorDescription) {
-        authError.value = errorDescription;
-      } else if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) throw error;
-      } else if (callbackParams.get('access_token')) {
-        const { error } = await supabase.auth.setSession({
-          access_token: callbackParams.get('access_token'),
-          refresh_token: callbackParams.get('refresh_token') || '',
-        });
-        if (error) throw error;
-      }
-    } catch (error) {
-      authError.value = error?.message || 'Unable to complete sign-in.';
-    } finally {
-      await Browser.close();
+// Handles both native deep links (com.nutrifit.app://auth?code=...) and the
+// HTTPS callback page that forwards the same parameters into the app.
+const completeAuthFromUrl = async (rawUrl) => {
+  if (!supabase || !rawUrl) return false;
+
+  let parsed;
+  try {
+    parsed = parseAuthUrl(rawUrl);
+  } catch {
+    return false;
+  }
+
+  const { get } = parsed;
+  const errorCode = get('error');
+  if (errorCode) {
+    authError.value = get('error_description') || errorCode;
+    return false;
+  }
+
+  if (get('type') === 'recovery' || get('flow') === 'recovery') isPasswordRecovery.value = true;
+
+  try {
+    const code = get('code');
+    const accessToken = get('access_token');
+    const refreshToken = get('refresh_token');
+    const tokenHash = get('token_hash');
+    const type = get('type');
+    // supabase-js stores the PKCE verifier under a per-flow slot and appends
+    // sb_flow_id to the redirect. Forward it so the exchange finds the right
+    // verifier even if another sign-in started in the meantime.
+    const flowId = get('sb_flow_id');
+
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(
+        code,
+        flowId ? { flowId } : undefined
+      );
+      if (error) throw error;
+    } else if (accessToken) {
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken || '',
+      });
+      if (error) throw error;
+    } else if (tokenHash && type) {
+      const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+      if (error) throw error;
+    } else {
+      return false;
     }
+
+    const { data } = await supabase.auth.getSession();
+    applySession(data.session || null);
+    authError.value = '';
+    if (!isPasswordRecovery.value) postAuthRedirect.value = true;
+    return true;
+  } catch (error) {
+    authError.value = friendlyAuthError(error);
+    return false;
+  }
+};
+
+const handleDeepLink = async (url) => {
+  if (!url || handledDeepLinks.has(url)) return;
+  handledDeepLinks.add(url);
+
+  await completeAuthFromUrl(url);
+
+  if (Capacitor.isNativePlatform()) {
+    // The OAuth flow runs in a Custom Tab; close it once we are back.
+    Browser.close().catch(() => {});
+  }
+};
+
+const bindDeepLinkListener = () => {
+  if (!supabase || deepLinkListenerBound || !Capacitor.isNativePlatform()) return;
+  deepLinkListenerBound = true;
+  App.addListener('appUrlOpen', ({ url }) => {
+    handleDeepLink(url);
   });
 };
+
+// Register immediately so a link that is delivered while the session is still
+// being restored is not lost.
+bindDeepLinkListener();
 
 export const initAuth = () => {
   if (initPromise) return initPromise;
@@ -100,6 +170,21 @@ export const initAuth = () => {
 
     authError.value = initialRedirectError;
 
+    // Bind before restoring the session so a SIGNED_IN emitted by the
+    // supabase-js URL detection on the web is never missed.
+    bindListener();
+
+    // Android reports the URL that launched a cold start through
+    // getLaunchUrl() instead of the appUrlOpen event.
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const launch = await App.getLaunchUrl();
+        if (launch?.url) await handleDeepLink(launch.url);
+      } catch (error) {
+        console.warn('[auth] Could not read launch URL:', error?.message || error);
+      }
+    }
+
     try {
       applySession(await getCurrentSession());
     } catch (error) {
@@ -108,7 +193,6 @@ export const initAuth = () => {
       authLoading.value = false;
     }
 
-    bindListener();
     bindDeepLinkListener();
     return session.value;
   })();
@@ -135,6 +219,7 @@ export const useAuth = () => {
     applySession(null);
     isPasswordRecovery.value = false;
     authError.value = '';
+    postAuthRedirect.value = false;
   };
 
   const signOutEverywhere = async () => {
@@ -142,6 +227,7 @@ export const useAuth = () => {
     applySession(null);
     isPasswordRecovery.value = false;
     authError.value = '';
+    postAuthRedirect.value = false;
   };
 
   const deleteAccount = async () => {
@@ -149,6 +235,7 @@ export const useAuth = () => {
     applySession(null);
     isPasswordRecovery.value = false;
     authError.value = '';
+    postAuthRedirect.value = false;
   };
 
   const updateDisplayName = async (name) => {
@@ -179,6 +266,7 @@ export const useAuth = () => {
     endPasswordRecovery,
     authError,
     clearAuthError,
+    postAuthRedirect,
     initAuth,
     signOut,
     signOutEverywhere,

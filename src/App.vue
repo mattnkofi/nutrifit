@@ -29,9 +29,9 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { IonApp, IonRouterOutlet } from '@ionic/vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import BottomNav from './components/BottomNav.vue';
 import HeaderBar from './components/HeaderBar.vue';
 import AIChatbot from './components/ai/AIChatbot.vue';
@@ -40,7 +40,8 @@ import { useAuth } from './composables/useAuth';
 const isLoading = ref(true);
 const isFadingOut = ref(false);
 const route = useRoute();
-const { isAuthenticated } = useAuth();
+const router = useRouter();
+const { authError, isAuthenticated, isPasswordRecovery, postAuthRedirect } = useAuth();
 
 onMounted(() => {
   // Play cinematic intro animation every time app opens
@@ -59,10 +60,38 @@ const routeName = computed(() => {
 });
 
 // Original: hidden on landing and auth routes, shown on authenticated tabs
-const showNav = computed(() => routeName.value !== 'landing' && routeName.value !== 'auth');
+const showNav = computed(
+  () => !['landing', 'auth', 'auth-callback'].includes(routeName.value)
+);
 
-// The auth screen has its own full-height layout, so the global header is hidden there.
-const showHeader = computed(() => routeName.value !== 'auth');
+// The auth and callback screens have their own full-height layouts, so the
+// global header is hidden there.
+const showHeader = computed(() => !['auth', 'auth-callback'].includes(routeName.value));
+
+// A deep link (email confirmation or Google sign-in) can complete while the app
+// is sitting on the landing page. Move the user into the app as soon as the
+// session appears, and send recovery links to the password form. `immediate`
+// matters on a cold start: the link is handled before this component mounts.
+watch(
+  [isAuthenticated, isPasswordRecovery, postAuthRedirect, authError],
+  ([authenticated, recovery, shouldRedirect, error]) => {
+    if (recovery) {
+      if (routeName.value !== 'auth') router.replace('/auth');
+      return;
+    }
+
+    if (authenticated && shouldRedirect) {
+      postAuthRedirect.value = false;
+      if (routeName.value !== 'dashboard') router.replace('/dashboard');
+      return;
+    }
+
+    if (error && routeName.value !== 'auth' && routeName.value !== 'auth-callback') {
+      router.replace('/auth');
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>

@@ -17,6 +17,26 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Resolve build label
+        id: build
+        run: |
+          # Commits follow the "NutriFit build N" convention. Use that label
+          # when present; otherwise fall back to the workflow run number.
+          message="$(git log -1 --pretty=%s)"
+          if [[ "$message" =~ ^NutriFit[[:space:]]+build[[:space:]]+([0-9]+)$ ]]; then
+            number="${BASH_REMATCH[1]}"
+            label="NutriFit build $number"
+          else
+            number="${{ github.run_number }}"
+            label="NutriFit build $number"
+          fi
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          echo "tag=nutrifit-build-$number" >> "$GITHUB_OUTPUT"
+          echo "Building $label (tag nutrifit-build-$number)"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -33,6 +53,8 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          VITE_YOUTUBE_API_KEY: ${{ secrets.VITE_YOUTUBE_API_KEY }}
+          VITE_PUBLIC_APP_URL: ${{ vars.VITE_PUBLIC_APP_URL || 'https://nutrifit-active.vercel.app' }}
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -52,15 +74,19 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --console=plain
+          ./gradlew assembleDebug -PnutrifitBuildNumber=${{ steps.build.outputs.number }} --console=plain
           mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/NutriFit.apk
 
       - name: Publish APK release asset
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: nutrifit-${{ github.run_number }}
-          name: NutriFit
+          tag_name: ${{ steps.build.outputs.tag }}
+          name: ${{ steps.build.outputs.label }}
+          body: |
+            **${{ steps.build.outputs.label }}**
+
+            Direct APK download: [NutriFit.apk](https://github.com/${{ github.repository }}/releases/download/${{ steps.build.outputs.tag }}/NutriFit.apk)
           draft: false
           prerelease: false
           generate_release_notes: false
@@ -72,11 +98,11 @@ jobs:
       - name: Add APK download link to job summary
         if: github.event_name != 'pull_request'
         run: |
-          echo "## 📱 NutriFit APK" >> "$GITHUB_STEP_SUMMARY"
+          echo "## 📱 ${{ steps.build.outputs.label }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Download the raw APK (not a zip):" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "[NutriFit.apk](https://github.com/${{ github.repository }}/releases/download/nutrifit-${{ github.run_number }}/NutriFit.apk)" >> "$GITHUB_STEP_SUMMARY"
+          echo "[NutriFit.apk](https://github.com/${{ github.repository }}/releases/download/${{ steps.build.outputs.tag }}/NutriFit.apk)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Always-latest link:" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"

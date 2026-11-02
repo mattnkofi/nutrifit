@@ -276,7 +276,7 @@
 </template>
 
 <script setup>
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -321,6 +321,7 @@ const cooldownLeft = ref(0);
 const resendCooldownLeft = ref(0);
 let cooldownTimer = null;
 let resendTimer = null;
+let browserListener = null;
 
 const startCooldown = (seconds = 60) => {
   cooldownLeft.value = seconds;
@@ -357,9 +358,19 @@ const submitLabel = (idle, busy) => {
   return idle;
 };
 
+onMounted(async () => {
+  if (!Capacitor.isNativePlatform()) return;
+  // If the user closes the Custom Tab without finishing, don't leave the
+  // Google button stuck on "Connecting".
+  browserListener = await Browser.addListener('browserFinished', () => {
+    isGoogleLoading.value = false;
+  });
+});
+
 onUnmounted(() => {
   if (cooldownTimer) clearInterval(cooldownTimer);
   if (resendTimer) clearInterval(resendTimer);
+  browserListener?.remove?.();
 });
 
 const redirectTarget = computed(() => {
@@ -484,7 +495,8 @@ const signInWithGoogleHandler = async () => {
   isGoogleLoading.value = true;
   try {
     const { data } = await signInWithGoogle({ redirectTo: '/auth' });
-    if (Capacitor.isNativePlatform() && data?.url) {
+    if (Capacitor.isNativePlatform()) {
+      if (!data?.url) throw new Error('Google sign-in could not start. Please try again.');
       await Browser.open({ url: data.url });
     }
   } catch (error) {

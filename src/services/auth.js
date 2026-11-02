@@ -12,10 +12,42 @@ const client = () => {
   return supabase;
 };
 
+const FALLBACK_PUBLIC_APP_URL = 'https://nutrifit-active.vercel.app';
+
+// The deployed web app. Native email/OAuth links land here first instead of
+// redirecting straight to com.nutrifit.app://, which some mail clients and
+// browsers render as a blank page.
+export const publicAppUrl = () => {
+  const configured = String(import.meta.env.VITE_PUBLIC_APP_URL || '').trim();
+  if (configured) return configured.replace(/\/+$/, '');
+
+  if (typeof window !== 'undefined' && /^https?:$/.test(window.location.protocol)) {
+    const { hostname } = window.location;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') return window.location.origin;
+  }
+
+  return FALLBACK_PUBLIC_APP_URL;
+};
+
 export const authRedirectUrl = (path = '/auth') => {
   if (Capacitor.isNativePlatform()) return `com.nutrifit.app://${path.replace(/^\/+/, '')}`;
   if (typeof window === 'undefined') return path;
   return new URL(path, window.location.origin).toString();
+};
+
+// Where Supabase should send the user after clicking an email link or
+// finishing Google sign-in. On native this is the HTTPS callback page, which
+// forwards the result into the installed app via the custom scheme.
+export const authEmailRedirectUrl = () => {
+  if (Capacitor.isNativePlatform()) return `${publicAppUrl()}/auth/callback`;
+  return authRedirectUrl('/auth');
+};
+
+// Password recovery needs a marker because Supabase's PKCE redirect only
+// carries the one-time code, not the original "recovery" type.
+export const authRecoveryRedirectUrl = () => {
+  if (Capacitor.isNativePlatform()) return `${publicAppUrl()}/auth/callback?flow=recovery`;
+  return authRedirectUrl('/auth');
 };
 
 export const getDisplayName = (user) => {
@@ -52,7 +84,7 @@ export async function signUpWithEmail({ name, email, password }) {
     password,
     options: {
       data: { full_name: String(name || '').trim() },
-      emailRedirectTo: authRedirectUrl('/auth'),
+      emailRedirectTo: authEmailRedirectUrl(),
     },
   });
   if (error) throw error;
@@ -73,7 +105,7 @@ export async function resendConfirmation(email) {
     type: 'signup',
     email: String(email || '').trim(),
     options: {
-      emailRedirectTo: authRedirectUrl('/auth'),
+      emailRedirectTo: authEmailRedirectUrl(),
     },
   });
   if (error) throw error;
@@ -84,7 +116,9 @@ export async function signInWithGoogle({ redirectTo = '/auth' } = {}) {
   const { data, error } = await client().auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: authRedirectUrl(redirectTo),
+      redirectTo: Capacitor.isNativePlatform()
+        ? authEmailRedirectUrl()
+        : authRedirectUrl(redirectTo),
       skipBrowserRedirect: Capacitor.isNativePlatform(),
       queryParams: { prompt: 'select_account' },
     },
@@ -95,7 +129,7 @@ export async function signInWithGoogle({ redirectTo = '/auth' } = {}) {
 
 export async function sendPasswordReset(email) {
   const { data, error } = await client().auth.resetPasswordForEmail(String(email || '').trim(), {
-    redirectTo: authRedirectUrl('/auth'),
+    redirectTo: authRecoveryRedirectUrl(),
   });
   if (error) throw error;
   return data;
@@ -188,6 +222,9 @@ export function friendlyAuthError(error) {
   }
   if (message.includes('redirect_uri_mismatch') || message.includes('redirect uri')) {
     return 'The Google OAuth redirect URL is not configured correctly. See AUTH_SETUP.md.';
+  }
+  if (message.includes('code verifier') || message.includes('pkce')) {
+    return 'Your email is confirmed, but this link was opened on a different device or after the app was reinstalled. Open NutriFit and sign in with your email and password.';
   }
   if (message.includes('not configured')) return raw;
 

@@ -24,7 +24,23 @@
         </header>
 
         <div class="vp-frame">
+          <button
+            v-if="isNative"
+            class="vp-native-play"
+            type="button"
+            @click="playOnYouTube"
+          >
+            <img
+              v-if="displayVideo.thumbnail && !displayVideo.thumbnailError"
+              :src="displayVideo.thumbnail"
+              :alt="displayVideo.title || 'Video thumbnail'"
+            />
+            <span class="vp-play-badge"><ion-icon :icon="playCircleOutline" /></span>
+            <span class="vp-play-label">Play on YouTube</span>
+          </button>
+
           <iframe
+            v-else
             :src="embedUrl"
             :title="displayVideo.title || 'YouTube video'"
             frameborder="0"
@@ -49,7 +65,9 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { closeOutline, openOutline } from 'ionicons/icons';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
+import { closeOutline, openOutline, playCircleOutline } from 'ionicons/icons';
 import { getEmbedUrl, getWatchUrl } from '../services/youtube';
 
 const props = defineProps({
@@ -58,6 +76,11 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close']);
+
+// YouTube embeds frequently fail inside the Android WebView (Error 153 or a
+// blank frame because the request has no usable referrer). Native builds hand
+// playback to the YouTube app instead of fighting the iframe.
+const isNative = Capacitor.isNativePlatform();
 
 // Kept separate from props.video so the player doesn't blank out mid-exit
 // when the parent clears its active video at the same time it closes us.
@@ -72,6 +95,11 @@ const watchUrl = computed(() => {
 });
 
 const close = () => emit('close');
+
+const playOnYouTube = async () => {
+  await Browser.open({ url: watchUrl.value });
+  close();
+};
 
 const onKeydown = (event) => {
   if (event.key !== 'Escape' || !props.isOpen) return;
@@ -196,6 +224,58 @@ watch(
     width: 100%;
     height: 100%;
     border: 0;
+  }
+
+  .vp-native-play {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: #000;
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .vp-native-play img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.55;
+    object-fit: cover;
+  }
+
+  .vp-play-badge {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 4rem;
+    height: 4rem;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    font-size: 2.4rem;
+  }
+
+  .vp-play-label {
+    position: absolute;
+    z-index: 1;
+    bottom: 0.9rem;
+    left: 50%;
+    padding: 0.35rem 0.75rem;
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.65);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
 
   .vp-foot {

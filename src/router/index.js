@@ -3,6 +3,7 @@ import { initAuth, useAuth } from '../composables/useAuth';
 import { isAuthConfigured } from '../services/auth';
 import LandingPage from '../views/LandingPage.vue';
 import AuthPage from '../views/AuthPage.vue';
+import AuthCallbackPage from '../views/AuthCallbackPage.vue';
 import DashboardPage from '../views/DashboardPage.vue';
 import WorkoutsPage from '../views/WorkoutsPage.vue';
 import ScannerPage from '../views/ScannerPage.vue';
@@ -14,6 +15,7 @@ const routes = [
   { path: '/', redirect: '/landing' },
   { path: '/landing', name: 'landing', component: LandingPage },
   { path: '/auth', name: 'auth', component: AuthPage },
+  { path: '/auth/callback', name: 'auth-callback', component: AuthCallbackPage },
   { path: '/dashboard', name: 'dashboard', component: DashboardPage },
   { path: '/workouts', name: 'workouts', component: WorkoutsPage },
   { path: '/scanner', name: 'scanner', component: ScannerPage },
@@ -33,7 +35,7 @@ const router = createRouter({
   },
 });
 
-const PUBLIC_ROUTES = new Set(['landing', 'auth']);
+const PUBLIC_ROUTES = new Set(['landing', 'auth', 'auth-callback']);
 
 router.beforeEach(async (to) => {
   // Without Supabase credentials the app stays usable in demo mode.
