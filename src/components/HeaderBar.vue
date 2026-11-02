@@ -186,6 +186,39 @@ const goTo = (path) => router.push(path);
     gap: 0.7rem;
   }
 
+  .header-refresh {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 11px;
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 1.05rem;
+    transition: border-color 0.3s var(--ease), background-color 0.3s var(--ease), transform 0.3s var(--ease);
+  }
+
+  .header-refresh:hover {
+    border-color: var(--ion-color-primary);
+    background: var(--surface-3);
+    transform: translateY(-1px);
+  }
+
+  .header-refresh:disabled {
+    opacity: 0.75;
+    cursor: wait;
+  }
+
+  .header-refresh.spinning ion-icon {
+    animation: headerSpin 0.7s linear infinite;
+  }
+
+  @keyframes headerSpin {
+    to { transform: rotate(360deg); }
+  }
+
   .coach-btn {
     position: relative;
     display: inline-flex;

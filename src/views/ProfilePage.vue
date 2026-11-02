@@ -349,12 +349,12 @@
               </button>
             </div>
           </form>
+        </div>
 
-          <div v-if="saving" class="profile-loading-overlay" role="status" aria-live="polite">
-            <span class="profile-spinner" aria-hidden="true"></span>
-            <strong>Saving profile...</strong>
-            <small>Please wait while we upload your changes.</small>
-          </div>
+        <div v-if="saving" class="profile-loading-overlay" role="status" aria-live="polite" @click.stop>
+          <span class="profile-spinner" aria-hidden="true"></span>
+          <strong>Saving profile...</strong>
+          <small>Please wait while we upload your changes.</small>
         </div>
       </div>
     </transition>
@@ -1076,7 +1076,7 @@ const applyCrop = () => {
       return;
     }
 
-    const size = 400;
+    const size = 160;
     const canvas = document.createElement('canvas');
     canvas.width = size;
     canvas.height = size;
@@ -1084,7 +1084,7 @@ const applyCrop = () => {
     context.imageSmoothingQuality = 'high';
     context.drawImage(img, sx, sy, sw, sh, 0, 0, size, size);
 
-    form.value.avatarUrl = canvas.toDataURL('image/jpeg', 0.85);
+    form.value.avatarUrl = canvas.toDataURL('image/jpeg', 0.8);
     showCropper.value = false;
     cropSource.value = '';
     cropMeta.value = null;
@@ -2610,9 +2610,9 @@ const confirmDeleteAccount = async () => {
 
   /* Profile save loading state */
   .profile-loading-overlay {
-    position: absolute;
+    position: fixed;
     inset: 0;
-    z-index: 5;
+    z-index: 6;
     display: flex;
     flex-direction: column;
     align-items: center;
