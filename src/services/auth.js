@@ -126,14 +126,53 @@ export async function resendConfirmation(email) {
   return data;
 }
 
+const supabaseProjectUrl = () =>
+  String(import.meta.env.VITE_SUPABASE_URL || '')
+    .replace(/\/rest\/v1\/?$/, '')
+    .replace(/\/+$/, '');
+
+// Builds the same /authorize URL that supabase-js would return. The native app
+// uses this as a fallback so Google sign-in can never be blocked just because
+// supabase-js failed to hand back a URL.
+const googleAuthorizeUrl = (redirectTo) => {
+  const base = supabaseProjectUrl();
+  if (!base) return '';
+
+  const url = new URL(`${base}/auth/v1/authorize`);
+  url.searchParams.set('provider', 'google');
+  url.searchParams.set('redirect_to', redirectTo);
+  url.searchParams.set('prompt', 'select_account');
+  return url.toString();
+};
+
 export async function signInWithGoogle({ redirectTo = '/auth' } = {}) {
+  const native = Capacitor.isNativePlatform();
+  const callbackUrl = native ? authOAuthRedirectUrl() : authRedirectUrl(redirectTo);
+
+  if (native) {
+    // The flow runs in a Chrome Custom Tab (a separate browser context), so
+    // supabase-js must not redirect the WebView itself.
+    const fallbackUrl = googleAuthorizeUrl(callbackUrl);
+    try {
+      const { data } = await client().auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: callbackUrl,
+          skipBrowserRedirect: true,
+          queryParams: { prompt: 'select_account' },
+        },
+      });
+      return { ...(data || {}), provider: 'google', url: data?.url || fallbackUrl };
+    } catch (error) {
+      if (fallbackUrl) return { provider: 'google', url: fallbackUrl };
+      throw error;
+    }
+  }
+
   const { data, error } = await client().auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: Capacitor.isNativePlatform()
-        ? authOAuthRedirectUrl()
-        : authRedirectUrl(redirectTo),
-      skipBrowserRedirect: Capacitor.isNativePlatform(),
+      redirectTo: callbackUrl,
       queryParams: { prompt: 'select_account' },
     },
   });

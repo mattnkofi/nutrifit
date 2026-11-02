@@ -192,10 +192,15 @@ watch(
     border-color: var(--ion-color-primary);
   }
 
+  /* padding-top instead of aspect-ratio: older Android WebViews do not support
+     aspect-ratio, and a flex item with no intrinsic height can otherwise be
+     squeezed to nothing inside the max-height card. */
   .vp-frame {
     position: relative;
+    flex: 0 0 auto;
     width: 100%;
-    aspect-ratio: 16 / 9;
+    height: 0;
+    padding-top: 56.25%;
     overflow: hidden;
     border-radius: 0.9rem;
     background: #000;

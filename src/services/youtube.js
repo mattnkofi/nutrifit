@@ -74,7 +74,10 @@ export async function searchYoutubeTutorials(exerciseName) {
   const q = encodeURIComponent(randomQuery);
 
   if (apiKey && typeof apiKey === 'string' && apiKey.trim().length >= 10) {
-    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=12&q=${q}&key=${apiKey}`;
+    // videoEmbeddable=true keeps out videos whose owner disabled embedding;
+    // those render as "Video unavailable / Watch on YouTube" in the in-app
+    // player instead of playing.
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&maxResults=12&q=${q}&key=${apiKey}`;
     try {
       const res = await fetch(url);
       if (res.ok) {
