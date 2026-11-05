@@ -19,15 +19,15 @@
 
             <div class="hero-stats">
               <div class="hero-stat">
-                <strong>{{ weeklyAverage }}<small>%</small></strong>
+                <strong><RollingNumber :value="weeklyAverage" /><small>%</small></strong>
                 <span>Weekly avg</span>
               </div>
               <div class="hero-stat">
-                <strong>{{ workoutsThisWeek }}<small>/{{ trainingTarget }}</small></strong>
+                <strong><RollingNumber :value="workoutsThisWeek" /><small>/<RollingNumber :value="trainingTarget" /></small></strong>
                 <span>Workouts</span>
               </div>
               <div class="hero-stat">
-                <strong>{{ daysOnTarget }}</strong>
+                <strong><RollingNumber :value="daysOnTarget" /></strong>
                 <span>Days on target</span>
               </div>
             </div>
@@ -46,13 +46,14 @@
             <div class="momentum-head">
               <span class="card-kicker">Today's progress</span>
               <span class="momentum-delta">
-                {{ weeklyDelta === null ? 'No prior data' : `${weeklyDelta > 0 ? '+' : ''}${weeklyDelta}%` }}
+                <template v-if="weeklyDelta === null">No prior data</template>
+                <template v-else>{{ weeklyDelta > 0 ? '+' : '' }}<RollingNumber :value="weeklyDelta" />%</template>
               </span>
             </div>
 
             <div class="momentum-score">
               <div class="score-ring" :style="{ '--score': todayScore }">
-                <strong>{{ todayScore }}<small>%</small></strong>
+                <strong><RollingNumber :value="todayScore" /><small>%</small></strong>
               </div>
               <div class="score-copy">
                 <span class="score-status">{{ scoreStatus }}</span>
@@ -64,7 +65,11 @@
 
             <div class="momentum-foot">
               <span>This week</span>
-              <strong>{{ streak ? `${streak}-day streak` : 'No streak yet' }} <ion-icon :icon="flameOutline" /></strong>
+              <strong>
+                <template v-if="streak"><RollingNumber :value="streak" />-day streak</template>
+                <template v-else>No streak yet</template>
+                <ion-icon :icon="flameOutline" />
+              </strong>
             </div>
           </article>
         </section>
@@ -73,14 +78,14 @@
           <article class="rail-card rail-calories">
             <header class="rail-head">
               <span class="rail-icon"><ion-icon :icon="pieChartOutline" /></span>
-              <span class="rail-badge">{{ caloriePercent }}%</span>
+              <span class="rail-badge"><RollingNumber :value="caloriePercent" />%</span>
             </header>
 
             <span class="card-kicker rail-kicker">Calories</span>
 
             <div class="rail-value">
-              <strong>{{ formatCalories(todayCalories) }}</strong>
-              <span v-if="calorieTarget">of {{ formatCalories(calorieTarget) }} kcal today</span>
+              <strong><RollingNumber :value="todayCalories" grouping /></strong>
+              <span v-if="calorieTarget">of <RollingNumber :value="calorieTarget" grouping /> kcal today</span>
               <span v-else>kcal today · no target set</span>
             </div>
 
@@ -88,7 +93,8 @@
 
             <button class="rail-action" type="button" @click="goTo('/scanner')">
               <span class="rail-action-meta">
-                {{ todayMeals.length ? `${todayMeals.length} meal${todayMeals.length === 1 ? '' : 's'} logged` : 'No meals logged yet' }}
+                <template v-if="todayMeals.length"><RollingNumber :value="todayMeals.length" /> meal{{ todayMeals.length === 1 ? '' : 's' }} logged</template>
+                <template v-else>No meals logged yet</template>
               </span>
               <span class="rail-action-label">Scan meal <ion-icon :icon="arrowForwardOutline" /></span>
             </button>
@@ -97,14 +103,14 @@
           <article class="rail-card rail-water">
             <header class="rail-head">
               <span class="rail-icon"><ion-icon :icon="waterOutline" /></span>
-              <span class="rail-badge">{{ waterPercent }}%</span>
+              <span class="rail-badge"><RollingNumber :value="waterPercent" />%</span>
             </header>
 
             <span class="card-kicker rail-kicker">Hydration</span>
 
             <div class="rail-value">
-              <strong>{{ todayWater }}<small>/{{ waterTarget }}</small></strong>
-              <span>glasses · {{ todayWater * 250 }} ml</span>
+              <strong><RollingNumber :value="todayWater" /><small>/<RollingNumber :value="waterTarget" /></small></strong>
+              <span>glasses · <RollingNumber :value="todayWater * 250" grouping /> ml</span>
             </div>
 
             <div class="glass-row" role="img" :aria-label="`${todayWater} of ${waterTarget} glasses of water`">
@@ -137,13 +143,13 @@
           <article class="rail-card rail-workout">
             <header class="rail-head">
               <span class="rail-icon"><ion-icon :icon="barbellOutline" /></span>
-              <span class="rail-badge">{{ workoutsThisWeek }}/{{ trainingTarget }}</span>
+              <span class="rail-badge"><RollingNumber :value="workoutsThisWeek" />/<RollingNumber :value="trainingTarget" /></span>
             </header>
 
             <span class="card-kicker rail-kicker">Workout plan</span>
 
             <div class="rail-value">
-              <strong>{{ planProgress }}<small>%</small></strong>
+              <strong><RollingNumber :value="planProgress" /><small>%</small></strong>
               <span>{{ plans.workouts.length ? 'Plan completed' : 'No plan yet' }}</span>
             </div>
 
@@ -151,7 +157,8 @@
 
             <button class="rail-action" type="button" @click="goTo('/workouts')">
               <span class="rail-action-meta">
-                {{ plans.workouts.length ? `${workoutsThisWeek} of ${trainingTarget} this week` : 'Find a plan that fits' }}
+                <template v-if="plans.workouts.length"><RollingNumber :value="workoutsThisWeek" /> of <RollingNumber :value="trainingTarget" /> this week</template>
+                <template v-else>Find a plan that fits</template>
               </span>
               <span class="rail-action-label">Browse <ion-icon :icon="arrowForwardOutline" /></span>
             </button>
@@ -161,7 +168,9 @@
             <header class="rail-head">
               <span class="rail-icon"><ion-icon :icon="statsChartOutline" /></span>
               <span class="streak-badge">
-                <ion-icon :icon="flameOutline" /> {{ streak ? `${streak}-day` : 'No streak' }}
+                <ion-icon :icon="flameOutline" />
+                <template v-if="streak"><RollingNumber :value="streak" />-day</template>
+                <template v-else>No streak</template>
               </span>
             </header>
 
@@ -183,7 +192,7 @@
             </div>
 
             <button class="rail-action" type="button" @click="goTo('/goals')">
-              <span class="rail-action-meta">{{ weeklyAverage }}% weekly average</span>
+              <span class="rail-action-meta"><RollingNumber :value="weeklyAverage" />% weekly average</span>
               <span class="rail-action-label">Goals <ion-icon :icon="arrowForwardOutline" /></span>
             </button>
           </article>
@@ -246,7 +255,7 @@
                 </button>
                 <button type="button" class="action-tile tile-water" @click="changeWater(1)">
                   <span class="tile-icon"><ion-icon :icon="waterOutline" /></span>
-                  <span class="tile-copy"><strong>Add Water</strong><small>{{ todayWater }} of {{ waterTarget }} glasses</small></span>
+                  <span class="tile-copy"><strong>Add Water</strong><small><RollingNumber :value="todayWater" /> of <RollingNumber :value="waterTarget" /> glasses</small></span>
                   <ion-icon class="tile-arrow" :icon="arrowForwardOutline" />
                 </button>
                 <button type="button" class="action-tile tile-goals" @click="goTo('/goals')">
@@ -274,12 +283,12 @@
               <div class="coach-empty">
                 <span class="empty-index">{{ plans.workouts.length ? '01' : '00' }}</span>
                 <div>
-                  <p>{{ plans.workouts.length ? `${plans.workouts.length}-day plan ready` : 'No plan yet' }}</p>
-                  <small>
-                    {{ plans.workouts.length
-                      ? `${workoutsThisWeek} of ${trainingTarget} workouts completed this week.`
-                      : 'We will suggest a plan based on your goals and recent activity.' }}
+                  <p v-if="plans.workouts.length"><RollingNumber :value="plans.workouts.length" />-day plan ready</p>
+                  <p v-else>No plan yet</p>
+                  <small v-if="plans.workouts.length">
+                    <RollingNumber :value="workoutsThisWeek" /> of <RollingNumber :value="trainingTarget" /> workouts completed this week.
                   </small>
+                  <small v-else>We will suggest a plan based on your goals and recent activity.</small>
                 </div>
               </div>
 
@@ -294,7 +303,7 @@
                   <span class="card-kicker">Today's focus</span>
                   <h3>Small wins.</h3>
                 </div>
-                <span class="focus-count">{{ completedFocus }} of 4</span>
+                <span class="focus-count"><RollingNumber :value="completedFocus" /> of 4</span>
               </div>
 
               <ul class="focus-list">
@@ -309,14 +318,14 @@
                   <span class="focus-check"><ion-icon v-if="todayMeals.length" :icon="checkmarkOutline" /></span>
                   <span>
                     <strong>Log a meal</strong>
-                    <small>{{ todayMeals.length ? `${todayMeals.length} meal${todayMeals.length === 1 ? '' : 's'} logged` : 'Scan or add a meal' }}</small>
+                    <small><template v-if="todayMeals.length"><RollingNumber :value="todayMeals.length" /> meal{{ todayMeals.length === 1 ? '' : 's' }} logged</template><template v-else>Scan or add a meal</template></small>
                   </span>
                 </li>
                 <li :class="{ done: todayWater >= waterTarget }">
                   <span class="focus-check"><ion-icon v-if="todayWater >= waterTarget" :icon="checkmarkOutline" /></span>
                   <span>
-                    <strong>Drink {{ waterTarget }} glasses</strong>
-                    <small>{{ todayWater }} of {{ waterTarget }} glasses</small>
+                    <strong>Drink <RollingNumber :value="waterTarget" /> glasses</strong>
+                    <small><RollingNumber :value="todayWater" /> of <RollingNumber :value="waterTarget" /> glasses</small>
                   </span>
                 </li>
                 <li :class="{ done: todayWorkouts.length > 0 }">
@@ -342,7 +351,7 @@
         <span class="undo-icon"><ion-icon :icon="waterOutline" /></span>
         <span class="undo-copy">
           <strong>{{ waterUndo.amount > 0 ? 'Water added' : 'Water removed' }}</strong>
-          <small>{{ todayWater }} of {{ waterTarget }} glasses today</small>
+          <small><RollingNumber :value="todayWater" /> of <RollingNumber :value="waterTarget" /> glasses today</small>
         </span>
         <button type="button" class="undo-action" @click="undoWater">Undo</button>
         <span class="undo-timer" :style="{ animationDuration: `${UNDO_MS}ms` }"></span>
@@ -370,6 +379,7 @@ import {
 } from 'ionicons/icons';
 import { useAuth } from '../composables/useAuth';
 import { useUserData } from '../composables/useUserData';
+import RollingNumber from '../components/RollingNumber.vue';
 import { todayKey } from '../services/userData';
 
 const router = useRouter();

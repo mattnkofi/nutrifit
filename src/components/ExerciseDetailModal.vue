@@ -98,7 +98,7 @@
             </div>
             <div class="coach-card" v-if="steps.length">
               <div class="coach-top">
-                <span class="coach-index">Step {{ activeStep + 1 }} of {{ steps.length }}</span>
+                <span class="coach-index">Step <RollingNumber :value="activeStep + 1" /> of <RollingNumber :value="steps.length" /></span>
                 <span class="coach-breath"><ion-icon :icon="heartOutline" /> {{ guide.breathing }}</span>
               </div>
               <Transition :name="stepDir" mode="out-in">
@@ -264,6 +264,7 @@ import { ref, watch, computed, onUnmounted } from 'vue';
 import { IonModal, IonHeader, IonToolbar, IonContent } from '@ionic/vue';
 import { Capacitor } from '@capacitor/core';
 import VideoPlayerModal from './VideoPlayerModal.vue';
+import RollingNumber from './RollingNumber.vue';
 import {
   addOutline,
   arrowBackOutline,

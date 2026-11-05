@@ -140,14 +140,14 @@
               <div v-else-if="analysis" class="analysis-details">
                 <div class="meal-name">{{ analysis.name }}</div>
                 <div class="meal-meta">{{ analysis.mealType }}{{ analysis.servingSize ? ` · ${analysis.servingSize}` : '' }}</div>
-                <div class="cal-row"><span>Total Calories</span><b>{{ analysis.calories }} kcal</b></div>
+                <div class="cal-row"><span>Total Calories</span><b><RollingNumber :value="analysis.calories" /> kcal</b></div>
                 <div class="macro-grid">
-                  <span><b>{{ analysis.protein }}g</b><small>Protein</small></span>
-                  <span><b>{{ analysis.carbs }}g</b><small>Carbs</small></span>
-                  <span><b>{{ analysis.fat }}g</b><small>Fat</small></span>
+                  <span><b><RollingNumber :value="analysis.protein" />g</b><small>Protein</small></span>
+                  <span><b><RollingNumber :value="analysis.carbs" />g</b><small>Carbs</small></span>
+                  <span><b><RollingNumber :value="analysis.fat" />g</b><small>Fat</small></span>
                 </div>
                 <div v-if="analysis.items?.length" class="items">
-                  <div v-for="(it,i) in analysis.items" :key="i" class="item"><span>{{ it.name }} ({{ it.amount }})</span><span>{{ it.calories }} kcal</span></div>
+                  <div v-for="(it,i) in analysis.items" :key="i" class="item"><span>{{ it.name }} ({{ it.amount }})</span><span><RollingNumber :value="it.calories" /> kcal</span></div>
                 </div>
               </div>
 
@@ -173,15 +173,15 @@
 
               <div class="trend-row">
                 <span>Calories today</span>
-                <b>{{ formatCalories(todayCalories) }} kcal</b>
+                <b><RollingNumber :value="todayCalories" grouping /> kcal</b>
               </div>
               <div class="trend-row">
                 <span>Daily average</span>
-                <b>{{ formatCalories(weeklyCalorieAverage) }} kcal</b>
+                <b><RollingNumber :value="weeklyCalorieAverage" grouping /> kcal</b>
               </div>
               <div class="trend-row">
                 <span>Total logged</span>
-                <b>{{ history.length }} meals</b>
+                <b><RollingNumber :value="history.length" /> meals</b>
               </div>
 
               <div class="mini-bars" aria-hidden="true">
@@ -208,7 +208,7 @@
                 <ion-icon :icon="searchOutline" />
                 <input v-model="searchQuery" type="text" placeholder="Search meals..." />
               </div>
-              <span class="history-count-pill">{{ filteredHistory.length }} Saved</span>
+              <span class="history-count-pill"><RollingNumber :value="filteredHistory.length" /> Saved</span>
             </div>
           </div>
 
@@ -250,7 +250,7 @@
               <div class="history-info">
                 <strong class="h-name">{{ h.name }}</strong>
                 <div class="h-sub">
-                  <span class="h-cal">{{ h.calories }} kcal</span>
+                  <span class="h-cal"><RollingNumber :value="h.calories" /> kcal</span>
                   <span class="h-date">{{ h.date.split(',')[0] }}</span>
                 </div>
               </div>
@@ -279,7 +279,7 @@
           <div class="mod-hero">
             <img :src="selectedMeal.image" alt="Meal photo" />
             <div class="mod-cal-pill">
-              <span class="mcp-num">{{ selectedMeal.calories }}</span>
+              <span class="mcp-num"><RollingNumber :value="selectedMeal.calories" /></span>
               <span class="mcp-lbl">kcal</span>
             </div>
           </div>
@@ -296,17 +296,17 @@
           <!-- Unified Macro Ribbon (Monochrome/Platinum) -->
           <div class="mod-macro-strip">
             <div class="mms-cell">
-              <span class="mms-val">{{ selectedMeal.protein }}g</span>
+              <span class="mms-val"><RollingNumber :value="selectedMeal.protein" />g</span>
               <span class="mms-lbl">Protein</span>
             </div>
             <div class="mms-divider"></div>
             <div class="mms-cell">
-              <span class="mms-val">{{ selectedMeal.carbs }}g</span>
+              <span class="mms-val"><RollingNumber :value="selectedMeal.carbs" />g</span>
               <span class="mms-lbl">Carbs</span>
             </div>
             <div class="mms-divider"></div>
             <div class="mms-cell">
-              <span class="mms-val">{{ selectedMeal.fat }}g</span>
+              <span class="mms-val"><RollingNumber :value="selectedMeal.fat" />g</span>
               <span class="mms-lbl">Fat</span>
             </div>
           </div>
@@ -315,7 +315,7 @@
           <div v-if="selectedMeal.items?.length" class="mod-ingredients-box">
             <div class="mib-head">
               <span>Detected Ingredients</span>
-              <span class="mib-count">{{ selectedMeal.items.length }} Items</span>
+              <span class="mib-count"><RollingNumber :value="selectedMeal.items.length" /> Items</span>
             </div>
             <div class="mib-list">
               <div v-for="(it,i) in selectedMeal.items" :key="i" class="mib-row">
@@ -323,7 +323,7 @@
                   <span class="mib-name">{{ it.name }}</span>
                   <span class="mib-qty">{{ it.amount }}</span>
                 </div>
-                <span class="mib-cal"><b>{{ it.calories }}</b> kcal</span>
+                <span class="mib-cal"><b><RollingNumber :value="it.calories" /></b> kcal</span>
               </div>
             </div>
           </div>
@@ -412,6 +412,7 @@ import {
   alertCircleOutline 
 } from 'ionicons/icons';
 import { analyzeFoodImage } from '../services/aiService';
+import RollingNumber from '../components/RollingNumber.vue';
 import { useSession } from '../composables/useSession';
 import { useUserData } from '../composables/useUserData';
 import { todayKey } from '../services/userData';
@@ -424,7 +425,6 @@ const {
   todayCalories,
   weekStats,
   calorieTarget,
-  formatCalories,
 } = useUserData();
 
 const videoRef = ref(null);

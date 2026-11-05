@@ -108,7 +108,7 @@
                 <div class="plan-day-body">
                   <strong>{{ day.workout?.name }}</strong>
                   <small>
-                    {{ day.workout?.group }} · {{ day.workout?.exercises?.length || 0 }}
+                    {{ day.workout?.group }} · <RollingNumber :value="day.workout?.exercises?.length || 0" />
                     exercise{{ (day.workout?.exercises?.length || 0) === 1 ? '' : 's' }}
                   </small>
                 </div>
@@ -122,7 +122,7 @@
                 <div class="mac-header" @click="toggleMealDay(day.day)">
                   <div class="mac-title-group">
                     <span class="mac-day">{{ day.day }}</span>
-                    <span class="mac-preview" v-if="!isDayOpen(day.day)">{{ day.meals?.length || 0 }} meals planned</span>
+                    <span class="mac-preview" v-if="!isDayOpen(day.day)"><RollingNumber :value="day.meals?.length || 0" /> meals planned</span>
                   </div>
                   <ion-icon :icon="isDayOpen(day.day) ? chevronUpOutline : chevronDownOutline" class="mac-chevron" />
                 </div>
@@ -130,7 +130,7 @@
                   <div v-for="(m, mi) in day.meals" :key="mi" class="mac-meal-row">
                     <div class="mmr-top">
                       <span class="mmr-type">{{ m.mealType }}</span>
-                      <span class="mmr-cal"><b>{{ m.calories }}</b> kcal</span>
+                      <span class="mmr-cal"><b><RollingNumber :value="m.calories" /></b> kcal</span>
                     </div>
                     <p class="mmr-desc">{{ m.food }}</p>
                   </div>
@@ -151,7 +151,7 @@
                   <span class="card-kicker">Your week</span>
                   <h2>Sessions &amp;<br />suggestions</h2>
                 </div>
-                <span class="pill">{{ mealHistory.length }} Meals Logged</span>
+                <span class="pill"><RollingNumber :value="mealHistory.length" /> Meals Logged</span>
               </div>
 
               <div class="history-preview-list" v-if="mealHistory.length">
@@ -159,7 +159,7 @@
                   <img :src="m.image" alt="Meal" v-if="m.image" />
                   <div class="hp-info">
                     <strong>{{ m.name }}</strong>
-                    <span>{{ m.calories }} kcal · {{ mealDateLabel(m) }}</span>
+                    <span><RollingNumber :value="m.calories" /> kcal · {{ mealDateLabel(m) }}</span>
                   </div>
                 </div>
               </div>
@@ -217,7 +217,7 @@
                 @click="hasValidTutorial(ex.name) && openExerciseDetailByName(ex.name)"
               >
                 <div class="pei-top">
-                  <strong>{{ ei + 1 }}. {{ ex.name }}</strong>
+                  <strong><RollingNumber :value="ei + 1" />. {{ ex.name }}</strong>
                 </div>
                 <p class="pei-notes" v-if="ex.notes">{{ ex.notes }}</p>
                 <small class="pei-hint" v-if="hasValidTutorial(ex.name)">VIEW YOUTUBE TUTORIAL &amp; GUIDE →</small>
@@ -259,6 +259,7 @@ import {
 import { generateWorkoutPlan, generateMealPlan } from '../services/aiService';
 import { getExercisesByNames, normalizeExercise, loadExercises } from '../services/exercises';
 import ExerciseDetailModal from '../components/ExerciseDetailModal.vue';
+import RollingNumber from '../components/RollingNumber.vue';
 import { useUserData } from '../composables/useUserData';
 import { getWeekDates, todayKey } from '../services/userData';
 

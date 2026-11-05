@@ -13,7 +13,8 @@
             <span class="page-tag">{{ todayLabel }}</span>
             <div class="hero-stat">
               <strong>
-                {{ weeklyDelta === null ? '—' : `${weeklyDelta > 0 ? '+' : ''}${weeklyDelta}` }}<small v-if="weeklyDelta !== null">%</small>
+                <template v-if="weeklyDelta === null">—</template>
+                <template v-else>{{ weeklyDelta > 0 ? '+' : '' }}<RollingNumber :value="weeklyDelta" /><small>%</small></template>
               </strong>
               <span>{{ weeklyDelta === null ? 'No prior week data' : 'vs last week' }}<br />overall progress</span>
             </div>
@@ -25,11 +26,11 @@
             <div class="metric-top">
               <span class="metric-icon"><ion-icon :icon="flameOutline" /></span>
               <span class="metric-label">Calories</span>
-              <span class="metric-trend">{{ calorieTrend === null ? '—' : `${calorieTrend > 0 ? '+' : ''}${calorieTrend}%` }}</span>
+              <span class="metric-trend"><template v-if="calorieTrend === null">—</template><template v-else>{{ calorieTrend > 0 ? '+' : '' }}<RollingNumber :value="calorieTrend" />%</template></span>
             </div>
-            <p class="metric">{{ caloriePercent }}<span>%</span></p>
+            <p class="metric"><RollingNumber :value="caloriePercent" /><span>%</span></p>
             <div class="metric-foot">
-              <span>{{ formatCalories(todayCalories) }} of {{ calorieTarget ? formatCalories(calorieTarget) : 'no target' }} calories</span>
+              <span><RollingNumber :value="todayCalories" grouping /> of {{ calorieTarget ? formatCalories(calorieTarget) : 'no target' }} calories</span>
               <span>Daily target</span>
             </div>
             <div class="metric-bar"><span :style="{ width: `${caloriePercent}%` }"></span></div>
@@ -39,11 +40,11 @@
             <div class="metric-top">
               <span class="metric-icon"><ion-icon :icon="barbellOutline" /></span>
               <span class="metric-label">Training</span>
-              <span class="metric-trend">{{ trainingTrend === null ? '—' : `${trainingTrend > 0 ? '+' : ''}${trainingTrend}` }}</span>
+              <span class="metric-trend"><template v-if="trainingTrend === null">—</template><template v-else>{{ trainingTrend > 0 ? '+' : '' }}<RollingNumber :value="trainingTrend" /></template></span>
             </div>
-            <p class="metric">{{ workoutsThisWeek }}<span>/{{ trainingTarget }}</span></p>
+            <p class="metric"><RollingNumber :value="workoutsThisWeek" /><span>/<RollingNumber :value="trainingTarget" /></span></p>
             <div class="metric-foot">
-              <span>{{ workoutsThisWeek }} of {{ trainingTarget }} sessions</span>
+              <span><RollingNumber :value="workoutsThisWeek" /> of <RollingNumber :value="trainingTarget" /> sessions</span>
               <span>Weekly plan</span>
             </div>
             <div class="metric-bar"><span :style="{ width: `${trainingPercent}%` }"></span></div>
@@ -53,11 +54,11 @@
             <div class="metric-top">
               <span class="metric-icon"><ion-icon :icon="waterOutline" /></span>
               <span class="metric-label">Hydration</span>
-              <span class="metric-trend">{{ hydrationTrend === null ? '—' : `${hydrationTrend > 0 ? '+' : ''}${hydrationTrend}` }}</span>
+              <span class="metric-trend"><template v-if="hydrationTrend === null">—</template><template v-else>{{ hydrationTrend > 0 ? '+' : '' }}<RollingNumber :value="hydrationTrend" /></template></span>
             </div>
-            <p class="metric">{{ todayWater }}<span>/{{ waterTarget }}</span></p>
+            <p class="metric"><RollingNumber :value="todayWater" /><span>/<RollingNumber :value="waterTarget" /></span></p>
             <div class="metric-foot">
-              <span>{{ todayWater }} of {{ waterTarget }} glasses</span>
+              <span><RollingNumber :value="todayWater" /> of <RollingNumber :value="waterTarget" /> glasses</span>
               <span>Daily target</span>
             </div>
             <div class="metric-bar"><span :style="{ width: `${waterPercent}%` }"></span></div>
@@ -73,7 +74,8 @@
               </div>
               <span class="chart-tag">
                 <ion-icon :icon="trendingUpOutline" />
-                {{ weeklyDelta === null ? 'This week' : `${weeklyDelta > 0 ? '+' : ''}${weeklyDelta}% vs last week` }}
+                <template v-if="weeklyDelta === null">This week</template>
+                <template v-else>{{ weeklyDelta > 0 ? '+' : '' }}<RollingNumber :value="weeklyDelta" />% vs last week</template>
               </span>
             </div>
 
@@ -96,12 +98,12 @@
             </div>
 
             <div class="chart-foot">
-              <span><small>Weekly average</small><strong>{{ weeklyAverage }}%</strong></span>
+              <span><small>Weekly average</small><strong><RollingNumber :value="weeklyAverage" />%</strong></span>
               <span>
                 <small>Best day</small>
-                <strong>{{ bestDay ? `${bestDay.longLabel} · ${bestDay.score}%` : 'No data yet' }}</strong>
+                <strong>{{ bestDay ? `${bestDay.longLabel} · ` : 'No data yet' }}<RollingNumber v-if="bestDay" :value="bestDay.score" />{{ bestDay ? '%' : '' }}</strong>
               </span>
-              <span><small>Days on target</small><strong>{{ daysOnTarget }} of {{ elapsedDays.length }}</strong></span>
+              <span><small>Days on target</small><strong><RollingNumber :value="daysOnTarget" /> of <RollingNumber :value="elapsedDays.length" /></strong></span>
             </div>
           </article>
 
@@ -112,32 +114,32 @@
                   <span class="card-kicker">Goal focus</span>
                   <h2>Active goals</h2>
                 </div>
-                <span class="pill">{{ activeGoalCount }} active</span>
+                <span class="pill"><RollingNumber :value="activeGoalCount" /> active</span>
               </div>
 
               <ul class="goal-list">
                 <li>
                   <span class="goal-name">Calorie intake<small>Daily target</small></span>
                   <span class="goal-meter"><i :style="{ width: `${caloriePercent}%` }"></i></span>
-                  <b>{{ calorieTarget ? `${caloriePercent}%` : 'Not set' }}</b>
+                  <b><template v-if="calorieTarget"><RollingNumber :value="caloriePercent" />%</template><template v-else>Not set</template></b>
                 </li>
                 <li>
                   <span class="goal-name">Training<small>Weekly sessions</small></span>
                   <span class="goal-meter"><i :style="{ width: `${trainingPercent}%` }"></i></span>
-                  <b>{{ trainingPercent }}%</b>
+                  <b><RollingNumber :value="trainingPercent" />%</b>
                 </li>
                 <li>
                   <span class="goal-name">Hydration<small>Today</small></span>
                   <span class="goal-meter"><i :style="{ width: `${waterPercent}%` }"></i></span>
-                  <b>{{ waterPercent }}%</b>
+                  <b><RollingNumber :value="waterPercent" />%</b>
                 </li>
                 <li>
                   <span class="goal-name">
                     Weight
-                    <small>{{ profile.targetWeightKg ? `Target ${profile.targetWeightKg} kg` : 'No target set' }}</small>
+                    <small><template v-if="profile.targetWeightKg">Target <RollingNumber :value="profile.targetWeightKg" /> kg</template><template v-else>No target set</template></small>
                   </span>
                   <span class="goal-meter"><i :style="{ width: `${weightProgress}%` }"></i></span>
-                  <b>{{ profile.weightKg ? `${profile.weightKg} kg` : 'Not set' }}</b>
+                  <b><template v-if="profile.weightKg"><RollingNumber :value="profile.weightKg" /> kg</template><template v-else>Not set</template></b>
                 </li>
               </ul>
             </article>
@@ -162,6 +164,7 @@ import { computed } from 'vue';
 import { IonPage, IonContent } from '@ionic/vue';
 import { barbellOutline, flameOutline, trendingUpOutline, waterOutline } from 'ionicons/icons';
 import { useUserData } from '../composables/useUserData';
+import RollingNumber from '../components/RollingNumber.vue';
 import { todayKey } from '../services/userData';
 
 const {

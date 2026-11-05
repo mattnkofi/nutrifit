@@ -22,7 +22,7 @@
             <div class="profile-info">
               <span class="banner-kicker">Member profile</span>
               <h2>{{ displayName || 'Guest' }}</h2>
-              <p>Member · {{ streak ? `${streak}-day streak` : 'No streak yet' }}</p>
+              <p>Member · <template v-if="streak"><RollingNumber :value="streak" />-day streak</template><template v-else>No streak yet</template></p>
               <div class="profile-tags">
                 <span>Goal: {{ labels.goal }}</span>
                 <span>Experience: {{ labels.experience }}</span>
@@ -36,7 +36,7 @@
           <div class="banner-stats">
             <div class="banner-stat">
               <span>Current streak</span>
-              <strong>{{ streak }}<small>days</small></strong>
+              <strong><RollingNumber :value="streak" /><small>days</small></strong>
             </div>
             <div class="banner-stat">
               <span>Member since</span>
@@ -61,13 +61,13 @@
               </div>
               <div class="info-list">
                 <div class="info-row"><span>Email</span><b>{{ userEmail }}</b></div>
-                <div class="info-row"><span>Age</span><b>{{ profile.age ? `${profile.age} years` : 'Not set' }}</b></div>
-                <div class="info-row"><span>Height</span><b>{{ profile.heightCm ? `${profile.heightCm} cm` : 'Not set' }}</b></div>
-                <div class="info-row"><span>Weight</span><b>{{ profile.weightKg ? `${profile.weightKg} kg` : 'Not set' }}</b></div>
+                <div class="info-row"><span>Age</span><b><template v-if="profile.age"><RollingNumber :value="profile.age" /> years</template><template v-else>Not set</template></b></div>
+                <div class="info-row"><span>Height</span><b><template v-if="profile.heightCm"><RollingNumber :value="profile.heightCm" /> cm</template><template v-else>Not set</template></b></div>
+                <div class="info-row"><span>Weight</span><b><template v-if="profile.weightKg"><RollingNumber :value="profile.weightKg" /> kg</template><template v-else>Not set</template></b></div>
               </div>
               <div class="card-foot">
                 <span>Profile completion</span>
-                <strong>{{ completion }}%</strong>
+                <strong><RollingNumber :value="completion" />%</strong>
               </div>
             </article>
 
@@ -81,10 +81,10 @@
               </div>
               <div class="info-list">
                 <div class="info-row"><span>Main goal</span><b>{{ labels.goal }}</b></div>
-                <div class="info-row"><span>Daily calories</span><b>{{ profile.dailyCalories ? `${profile.dailyCalories} kcal` : 'Not set' }}</b></div>
-                <div class="info-row"><span>Daily protein</span><b>{{ profile.dailyProtein ? `${profile.dailyProtein} g` : 'Not set' }}</b></div>
+                <div class="info-row"><span>Daily calories</span><b><template v-if="profile.dailyCalories"><RollingNumber :value="profile.dailyCalories" grouping /> kcal</template><template v-else>Not set</template></b></div>
+                <div class="info-row"><span>Daily protein</span><b><template v-if="profile.dailyProtein"><RollingNumber :value="profile.dailyProtein" /> g</template><template v-else>Not set</template></b></div>
                 <div class="info-row"><span>Activity level</span><b>{{ labels.activity }}</b></div>
-                <div class="info-row"><span>Weekly training</span><b>{{ profile.trainingTarget }} sessions</b></div>
+                <div class="info-row"><span>Weekly training</span><b><RollingNumber :value="profile.trainingTarget || 0" /> sessions</b></div>
               </div>
               <div class="card-foot">
                 <span>Last updated</span>
@@ -105,7 +105,7 @@
               <div class="action-grid">
                 <button class="action-item" type="button" @click="openPanel('notifications')">
                   <span class="action-icon"><ion-icon :icon="notificationsOutline" /></span>
-                  <span class="action-copy"><strong>Notifications</strong><small>{{ enabledNotifications }}/4 enabled</small></span>
+                  <span class="action-copy"><strong>Notifications</strong><small><RollingNumber :value="enabledNotifications" />/4 enabled</small></span>
                   <ion-icon class="chevron" :icon="chevronForwardOutline" />
                 </button>
                 <button class="action-item" type="button" @click="openPanel('theme')">
@@ -688,6 +688,7 @@ import {
 import { useAuth } from '../composables/useAuth';
 import { useUserData } from '../composables/useUserData';
 import { useSession } from '../composables/useSession';
+import RollingNumber from '../components/RollingNumber.vue';
 import { updatePassword } from '../services/auth';
 import {
   NOTIFICATION_ITEMS,

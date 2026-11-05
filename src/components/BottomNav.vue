@@ -1,13 +1,21 @@
 <template>
   <nav class="bottom-nav" :class="{ 'coach-open': isCoachOpen, 'session-open': hasAnyModalOpen }" aria-label="Primary navigation">
-    <div class="tab-bar">
+    <div class="tab-bar" ref="tabBarRef">
+      <span
+        class="nav-indicator"
+        :class="{ ready: indicatorReady }"
+        :style="indicatorStyle"
+        aria-hidden="true"
+      ></span>
       <button
-        v-for="item in items"
+        v-for="(item, index) in items"
         :key="item.name"
+        :ref="(el) => setTabRef(el, index)"
         class="tab-btn"
-        :class="{ active: route.name === item.name }"
+        :class="{ active: isActive(item) }"
         type="button"
         :aria-label="item.label"
+        :aria-current="isActive(item) ? 'page' : undefined"
         @click="goTo(item.path)"
       >
         <ion-icon :icon="item.icon" />
@@ -17,6 +25,7 @@
 </template>
 
 <script setup>
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   homeOutline,
@@ -40,6 +49,86 @@ const items = [
   { name: 'planner', label: 'Planner', icon: calendarOutline, path: '/planner' },
   { name: 'profile', label: 'Profile', icon: personOutline, path: '/profile' },
 ];
+
+const tabBarRef = ref(null);
+const tabRefs = ref([]);
+const indicatorStyle = ref({});
+const indicatorReady = ref(false);
+
+let resizeObserver = null;
+
+const routeName = () => (Array.isArray(route.name) ? route.name[0] : route.name);
+const isActive = (item) => routeName() === item.name;
+
+const setTabRef = (el, index) => {
+  if (el) tabRefs.value[index] = el;
+};
+
+const remSize = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+
+// The pill grows a little past the icon so the selected tab still feels
+// "expanded", without changing the tab layout (which would make the pill
+// jump instead of slide).
+const indicatorPadding = () => {
+  const rem = remSize();
+  if (window.innerWidth >= 1280) return { x: 0, y: rem * 0.8 };
+  if (window.innerWidth >= 1024) return { x: 0, y: rem * 0.6 };
+  return { x: rem * 1, y: 0 };
+};
+
+const measureIndicator = async () => {
+  await nextTick();
+  const bar = tabBarRef.value;
+  if (!bar) return;
+
+  const index = items.findIndex(isActive);
+  const el = tabRefs.value[index];
+  if (index < 0 || !el) {
+    indicatorReady.value = false;
+    return;
+  }
+
+  const barRect = bar.getBoundingClientRect();
+  const rect = el.getBoundingClientRect();
+  const pad = indicatorPadding();
+
+  indicatorStyle.value = {
+    width: `${rect.width + pad.x}px`,
+    height: `${rect.height + pad.y}px`,
+    transform: `translate3d(${rect.left - barRect.left - pad.x / 2}px, ${
+      rect.top - barRect.top - pad.y / 2
+    }px, 0)`,
+  };
+
+  if (!indicatorReady.value) {
+    // Paint the pill at its resting spot first, otherwise it animates in
+    // from the top-left corner on the very first page load.
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+  }
+  indicatorReady.value = true;
+};
+
+watch(() => route.name, measureIndicator, { flush: 'post' });
+
+onMounted(() => {
+  measureIndicator();
+  window.addEventListener('resize', measureIndicator);
+
+  if ('ResizeObserver' in window) {
+    resizeObserver = new ResizeObserver(() => measureIndicator());
+    if (tabBarRef.value) resizeObserver.observe(tabBarRef.value);
+  }
+
+  // Fonts and responsive padding can land after the first paint.
+  window.setTimeout(measureIndicator, 260);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', measureIndicator);
+  resizeObserver?.disconnect();
+});
 
 const goTo = (path) => {
   router.push(path).catch(() => {});
@@ -67,6 +156,7 @@ const goTo = (path) => {
   }
 
   .tab-bar {
+    position: relative;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -79,8 +169,37 @@ const goTo = (path) => {
     transition: all 0.25s ease;
   }
 
+  /* The highlight is its own layer so it can glide between tabs. */
+  .nav-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 0;
+    border-radius: 0.8rem;
+    background: var(--ion-color-primary);
+    box-shadow: 0 12px 30px rgba(255, 255, 255, 0.2);
+    pointer-events: none;
+    opacity: 0;
+    will-change: transform, width, height;
+    transition:
+      transform 0.52s cubic-bezier(0.22, 1, 0.36, 1),
+      width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+      height 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+      border-radius 0.38s var(--ease-out),
+      opacity 0.2s var(--ease);
+  }
+
+  .nav-indicator.ready {
+    opacity: 1;
+  }
+
+  .nav-indicator:not(.ready) {
+    transition: none;
+  }
+
   .tab-btn {
     position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -90,12 +209,8 @@ const goTo = (path) => {
     background: transparent;
     color: var(--muted);
     transition:
-      color 0.25s ease,
-      background-color 0.25s ease,
-      border-color 0.25s ease,
-      transform 0.25s ease,
-      width 0.25s ease,
-      padding 0.25s ease;
+      color 0.28s var(--ease),
+      transform 0.28s var(--ease-out);
     width: 2.6rem;
     height: 2.6rem;
     font-size: 1.25rem;
@@ -108,21 +223,31 @@ const goTo = (path) => {
 
   .tab-btn.active {
     color: var(--ion-color-primary-contrast);
-    background: var(--ion-color-primary);
-    border: 1px solid var(--ion-color-primary);
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 0.8rem;
     transform: scale(1);
-    padding: 0 0.4rem;
-    width: 3.6rem;
-    height: 2.6rem;
+  }
+
+  .tab-btn.active:hover {
+    color: var(--ion-color-primary-contrast);
   }
 
   .tab-btn:active {
-    transform: scale(0.92);
+    transform: scale(0.9);
   }
 
   ion-icon {
     font-size: inherit;
+    transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .tab-btn.active ion-icon {
+    transform: scale(1.1);
+  }
+
+  .tab-btn:active ion-icon {
+    transform: scale(0.9);
   }
 
   .bottom-nav.session-open {
@@ -165,23 +290,22 @@ const goTo = (path) => {
       max-width: none;
     }
 
+    .nav-indicator {
+      border-radius: 999px;
+    }
+
     .tab-btn {
       width: 3.6rem;
       height: 3.6rem;
       font-size: 1.7rem;
       transition:
-        color 0.25s ease,
-        background-color 0.25s ease,
-        border-color 0.25s ease,
-        transform 0.25s ease,
-        height 0.25s ease,
-        padding 0.25s ease;
+        color 0.28s var(--ease),
+        transform 0.28s var(--ease-out);
     }
 
     .tab-btn.active {
       border-radius: 999px;
-      height: 4.2rem;
-      padding: 0.4rem 0;
+      padding: 0;
     }
   }
 
@@ -202,8 +326,7 @@ const goTo = (path) => {
     }
 
     .tab-btn.active {
-      height: 4.8rem;
-      padding: 0.6rem 0;
+      padding: 0;
     }
   }
 </style>

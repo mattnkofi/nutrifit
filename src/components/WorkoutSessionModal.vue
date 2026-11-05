@@ -23,20 +23,20 @@
         <span class="summary-icon"><ion-icon :icon="trophyOutline" /></span>
         <span class="card-kicker">Session complete</span>
         <h2>Strong work.</h2>
-        <p>{{ summary.exercises }} exercises · {{ summary.sets }} sets · {{ summary.minutes }} min</p>
+        <p><RollingNumber :value="summary.exercises" /> exercises · <RollingNumber :value="summary.sets" /> sets · <RollingNumber :value="summary.minutes" /> min</p>
 
         <div class="summary-stats">
           <div>
             <span>Exercises</span>
-            <strong>{{ summary.exercises }}</strong>
+            <strong><RollingNumber :value="summary.exercises" /></strong>
           </div>
           <div>
             <span>Sets</span>
-            <strong>{{ summary.sets }}</strong>
+            <strong><RollingNumber :value="summary.sets" /></strong>
           </div>
           <div>
             <span>Time</span>
-            <strong>{{ summary.minutes }}<small>min</small></strong>
+            <strong><RollingNumber :value="summary.minutes" /><small>min</small></strong>
           </div>
         </div>
 
@@ -53,10 +53,10 @@
       <div v-else-if="currentExercise" class="session-body">
         <div class="session-progress">
           <div class="progress-copy">
-            <span>Exercise {{ currentIndex + 1 }} of {{ exercises.length }}</span>
+            <span>Exercise <RollingNumber :value="currentIndex + 1" /> of <RollingNumber :value="exercises.length" /></span>
             <strong>{{ currentExercise.name }}</strong>
           </div>
-          <span class="progress-time">{{ formattedElapsed }}</span>
+          <span class="progress-time"><RollingNumber :value="formattedElapsed" :duration="420" /></span>
           <div class="progress-track"><span :style="{ width: progressPercent + '%' }"></span></div>
         </div>
 
@@ -65,7 +65,7 @@
             <img v-if="mediaImage" :src="mediaImage" :alt="currentExercise.name" />
             <div v-else class="media-fallback"><ion-icon :icon="barbellOutline" /></div>
             <span class="phase-badge" :class="phase">{{ phaseLabel }}</span>
-            <span class="set-badge">Set {{ currentSet }} of {{ prescription.sets }}</span>
+            <span class="set-badge">Set <RollingNumber :value="currentSet" /> of <RollingNumber :value="prescription.sets" /></span>
           </div>
 
           <div class="timer-card" :class="phase">
@@ -75,7 +75,7 @@
                 <circle class="ring-fill" cx="60" cy="60" r="54" :style="ringStyle" />
               </svg>
               <div class="timer-inner" role="timer" aria-live="off">
-                <strong>{{ timerLabel }}</strong>
+                <strong><RollingNumber :value="timerLabel" :duration="420" /></strong>
                 <span>{{ phaseLabel }}</span>
               </div>
             </div>
@@ -108,7 +108,7 @@
         <div class="session-coach">
           <div class="coach-head">
             <span class="block-label">How to do it</span>
-            <span class="coach-count" v-if="instructions.length">Step {{ activeStep + 1 }} of {{ instructions.length }}</span>
+            <span class="coach-count" v-if="instructions.length">Step <RollingNumber :value="activeStep + 1" /> of <RollingNumber :value="instructions.length" /></span>
           </div>
           <template v-if="instructions.length">
             <Transition :name="stepDir" mode="out-in">
@@ -148,7 +148,7 @@
 
         <div class="session-footer">
           <button class="text-btn" type="button" @click="skipExercise">Skip exercise</button>
-          <span>{{ completedSets }} sets done · {{ formattedElapsed }}</span>
+          <span><RollingNumber :value="completedSets" /> sets done · <RollingNumber :value="formattedElapsed" :duration="420" /></span>
           <button class="text-btn" type="button" @click="finishSession">Finish session</button>
         </div>
       </div>
@@ -171,6 +171,7 @@ import {
 } from 'ionicons/icons';
 import { getExerciseGuide, getWorkoutSummary } from '../services/exerciseGuide';
 import { getExerciseImage } from '../services/exercises';
+import RollingNumber from './RollingNumber.vue';
 import { useSession } from '../composables/useSession';
 import { modalEnterAnimation, modalLeaveAnimation } from '../utils/modalAnimations';
 

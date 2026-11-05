@@ -24,6 +24,7 @@
       <ion-router-outlet />
       <BottomNav v-if="showNav" />
       <AIChatbot v-if="isAuthenticated" />
+      <PullToRefresh />
     </template>
   </ion-app>
 </template>
@@ -34,6 +35,7 @@ import { IonApp, IonRouterOutlet } from '@ionic/vue';
 import { useRoute, useRouter } from 'vue-router';
 import BottomNav from './components/BottomNav.vue';
 import HeaderBar from './components/HeaderBar.vue';
+import PullToRefresh from './components/PullToRefresh.vue';
 import AIChatbot from './components/ai/AIChatbot.vue';
 import { useAuth } from './composables/useAuth';
 

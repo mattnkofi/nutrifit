@@ -13,11 +13,11 @@
           </div>
           <div class="hero-stats">
             <div class="hero-stat">
-              <strong>{{ sessionExercises.length }}</strong>
+              <strong><RollingNumber :value="sessionExercises.length" /></strong>
               <span>Exercises ready</span>
             </div>
             <div class="hero-stat">
-              <strong>{{ sessionEstimate }}<small>min</small></strong>
+              <strong><RollingNumber :value="sessionEstimate" /><small>min</small></strong>
               <span>Estimated time</span>
             </div>
           </div>
@@ -32,7 +32,7 @@
               <p class="section-sub">Add exercises below, then start when you're ready.</p>
             </div>
             <span class="pill" v-if="sessionExercises.length">
-              {{ sessionExercises.length }} exercise{{ sessionExercises.length > 1 ? 's' : '' }} · ~{{ sessionEstimate }} min
+              <RollingNumber :value="sessionExercises.length" /> exercise{{ sessionExercises.length > 1 ? 's' : '' }} · ~<RollingNumber :value="sessionEstimate" /> min
             </span>
           </div>
 
@@ -41,7 +41,7 @@
             <div class="history-copy">
               <span class="card-kicker">Last completed</span>
               <strong>{{ lastSession.title || 'Completed workout' }}</strong>
-              <small>{{ lastSession.exercises || 0 }} exercises · {{ lastSession.sets || 0 }} sets · {{ lastSession.minutes || 0 }} min</small>
+              <small><RollingNumber :value="lastSession.exercises || 0" /> exercises · <RollingNumber :value="lastSession.sets || 0" /> sets · <RollingNumber :value="lastSession.minutes || 0" /> min</small>
             </div>
             <button class="text-btn" type="button" :disabled="!lastSession.items?.length" @click="repeatLastSession">
               <ion-icon :icon="playCircleOutline" /> Repeat
@@ -49,13 +49,33 @@
           </div>
 
           <div class="session-panel" v-if="sessionExercises.length">
-            <TransitionGroup name="session-row" tag="ul" class="session-list">
-              <li class="session-item" v-for="(ex, idx) in sessionExercises" :key="ex.id || ex.name">
-                <span class="session-index">{{ idx + 1 }}</span>
+            <p class="session-reorder-hint" v-if="sessionExercises.length > 1">
+              <ion-icon :icon="reorderThreeOutline" />
+              Hold the handle, then drag to reorder
+            </p>
+
+            <ul class="session-list">
+              <li
+                class="session-item"
+                v-for="(ex, idx) in sessionExercises"
+                :key="ex.id || ex.name"
+                :class="{ dragging: dragState?.active && dragState.index === idx }"
+                :style="dragRowStyle(idx)"
+              >
+                <button
+                  class="drag-handle"
+                  type="button"
+                  :aria-label="`Hold and drag to reorder ${ex.name}`"
+                  @pointerdown.prevent="startDrag($event, idx)"
+                  @contextmenu.prevent
+                >
+                  <ion-icon :icon="reorderThreeOutline" />
+                </button>
+                <span class="session-index"><RollingNumber :value="idx + 1" /></span>
                 <div class="session-info">
                   <strong>{{ ex.name }}</strong>
                   <div class="session-meta">
-                    <span class="meta-chip">{{ prescriptionFor(ex).sets }} sets</span>
+                    <span class="meta-chip"><RollingNumber :value="prescriptionFor(ex).sets" /> sets</span>
                     <span class="meta-chip">{{ prescriptionFor(ex).reps }}</span>
                     <span class="meta-chip">Rest {{ prescriptionFor(ex).rest }}</span>
                   </div>
@@ -64,7 +84,7 @@
                   <ion-icon :icon="closeOutline" />
                 </button>
               </li>
-            </TransitionGroup>
+            </ul>
             <div class="session-actions">
               <button class="primary-button start-btn" type="button" @click="startSession(sessionExercises, 'My session')">
                 <ion-icon :icon="playCircleOutline" /> Start workout
@@ -158,7 +178,7 @@
               <h2>Browse all exercises.</h2>
               <p class="section-sub">Search and filter to find exactly what you need.</p>
             </div>
-            <span class="pill">{{ libraryResults.length }} exercise{{ libraryResults.length === 1 ? '' : 's' }}</span>
+            <span class="pill"><RollingNumber :value="libraryResults.length" /> exercise{{ libraryResults.length === 1 ? '' : 's' }}</span>
           </div>
 
           <div class="search-bar">
@@ -283,7 +303,7 @@
             <button class="page-btn" :disabled="currentPage === 1" @click="goPage(currentPage - 1)">
               <ion-icon :icon="arrowBackOutline" /> Prev
             </button>
-            <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
+            <span class="page-info">Page <RollingNumber :value="currentPage" /> of <RollingNumber :value="totalPages" /></span>
             <button class="page-btn" :disabled="currentPage === totalPages" @click="goPage(currentPage + 1)">
               Next <ion-icon :icon="arrowForwardOutline" />
             </button>
@@ -318,6 +338,7 @@ import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 
 import ExerciseDetailModal from '../components/ExerciseDetailModal.vue';
 import WorkoutSessionModal from '../components/WorkoutSessionModal.vue';
+import RollingNumber from '../components/RollingNumber.vue';
 import { IonPage, IonContent } from '@ionic/vue';
 import {
   addCircleOutline,
@@ -328,6 +349,7 @@ import {
   chevronDownOutline,
   closeOutline,
   playCircleOutline,
+  reorderThreeOutline,
   searchOutline,
   sparklesOutline,
 } from 'ionicons/icons';
@@ -400,6 +422,219 @@ const notify = (message) => {
     sessionNotice.value = '';
   }, 2200);
 };
+
+// ---------------------------------------------------------------------------
+// Session reordering: hold the drag handle, then move the row up or down.
+// Only the handle starts a drag, so normal page scrolling still works.
+// ---------------------------------------------------------------------------
+const dragState = ref(null);
+let dragTimer = null;
+let settleTimer = null;
+
+// Rows open a gap while dragging so the list visibly makes room for the
+// row under your finger, then settle into place when you let go.
+const dragShift = (index) => {
+  const drag = dragState.value;
+  if (!drag?.active || drag.settling) return 0;
+
+  const from = drag.index;
+  const to = drag.dropIndex;
+
+  if (from < to && index > from && index <= to) return -drag.pitch;
+  if (from > to && index >= to && index < from) return drag.pitch;
+  return 0;
+};
+
+const dragRowStyle = (index) => {
+  const drag = dragState.value;
+  if (!drag?.active) return null;
+
+  if (index === drag.index) {
+    const offset = drag.settling ? drag.settleOffset : drag.delta;
+    return {
+      transform: `translate3d(0, ${offset}px, 0) scale(${offset === 0 ? 1 : 1.015})`,
+      transition: drag.settling && !drag.committing ? 'transform 0.36s var(--ease-out)' : 'none',
+      zIndex: 5,
+      willChange: 'transform',
+    };
+  }
+
+  const shift = dragShift(index);
+  return {
+    transform: `translate3d(0, ${shift}px, 0)`,
+    transition: drag.committing ? 'none' : 'transform 0.32s var(--ease-out)',
+  };
+};
+
+const removeDragListeners = () => {
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onDragEnd);
+  window.removeEventListener('pointercancel', onDragCancel);
+};
+
+const resetDrag = () => {
+  if (dragTimer) {
+    window.clearTimeout(dragTimer);
+    dragTimer = null;
+  }
+  if (settleTimer) {
+    window.clearTimeout(settleTimer);
+    settleTimer = null;
+  }
+  removeDragListeners();
+  dragState.value = null;
+  document.body.classList.remove('session-reordering');
+};
+
+const activateDrag = () => {
+  dragTimer = null;
+  const drag = dragState.value;
+  if (!drag) return;
+
+  const rows = Array.from(drag.list.querySelectorAll('.session-item'));
+  const rects = rows.map((row) => row.getBoundingClientRect());
+  const current = rects[drag.index];
+  if (!current || rects.length < 2) {
+    resetDrag();
+    return;
+  }
+
+  drag.active = true;
+  drag.startY = drag.lastY;
+  drag.startX = drag.lastX;
+  drag.delta = 0;
+  drag.dropIndex = drag.index;
+  drag.slotTops = rects.map((rect) => rect.top);
+  drag.centerPoints = rects.map((rect) => rect.top + rect.height / 2);
+  drag.height = current.height;
+  drag.pitch = drag.centerPoints[1] - drag.centerPoints[0];
+
+  document.body.classList.add('session-reordering');
+  try {
+    navigator.vibrate?.(10);
+  } catch {
+    // Haptics are optional.
+  }
+};
+
+const nearestDropIndex = (drag) => {
+  const dragCenter = drag.slotTops[drag.index] + drag.delta + drag.height / 2;
+  let target = 0;
+
+  for (let i = 1; i < drag.centerPoints.length; i += 1) {
+    const boundary = (drag.centerPoints[i - 1] + drag.centerPoints[i]) / 2;
+    if (dragCenter > boundary) target = i;
+  }
+
+  return target;
+};
+
+const onDragMove = (event) => {
+  const drag = dragState.value;
+  if (!drag) return;
+
+  drag.lastY = event.clientY;
+  drag.lastX = event.clientX;
+
+  if (!drag.active) {
+    // A quick swipe should scroll the page, not lift the row.
+    if (Math.abs(event.clientY - drag.startY) > 8 || Math.abs(event.clientX - drag.startX) > 8) {
+      resetDrag();
+    }
+    return;
+  }
+
+  if (drag.settling) return;
+  if (event.cancelable) event.preventDefault();
+
+  drag.delta = event.clientY - drag.startY;
+  drag.dropIndex = nearestDropIndex(drag);
+};
+
+const finishDrag = () => {
+  const drag = dragState.value;
+  if (!drag) return;
+
+  if (!drag.active) {
+    resetDrag();
+    return;
+  }
+  if (drag.settling) return;
+
+  removeDragListeners();
+  document.body.classList.remove('session-reordering');
+
+  const from = drag.index;
+  const to = drag.dropIndex;
+  const settleOffset = drag.slotTops[from] + drag.delta - drag.slotTops[to];
+
+  if (to !== from) {
+    const next = [...sessionExercises.value];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    sessionExercises.value = next;
+    persistSession();
+    notify('Session order updated');
+  }
+
+  // Commit the new order without moving anything on screen: the sibling
+  // rows are already sitting in their future slots, so clearing the gap
+  // shifts and reordering happens in the same frame.
+  drag.committing = true;
+  drag.settling = true;
+  drag.index = to;
+  drag.dropIndex = to;
+  drag.settleOffset = settleOffset;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (dragState.value !== drag) return;
+      drag.committing = false;
+      drag.settleOffset = 0;
+      settleTimer = window.setTimeout(() => {
+        if (dragState.value === drag) resetDrag();
+      }, 420);
+    });
+  });
+};
+
+const onDragEnd = () => finishDrag();
+
+const onDragCancel = () => finishDrag();
+
+const startDrag = (event, index) => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  if (dragState.value) resetDrag();
+
+  const row = event.currentTarget.closest('.session-item');
+  const list = row?.parentElement;
+  if (!row || !list) return;
+
+  dragState.value = {
+    index,
+    dropIndex: index,
+    startY: event.clientY,
+    startX: event.clientX,
+    lastY: event.clientY,
+    lastX: event.clientX,
+    delta: 0,
+    active: false,
+    settling: false,
+    committing: false,
+    row,
+    list,
+  };
+
+  dragTimer = window.setTimeout(activateDrag, 180);
+  window.addEventListener('pointermove', onDragMove, { passive: false });
+  window.addEventListener('pointerup', onDragEnd);
+  window.addEventListener('pointercancel', onDragCancel);
+};
+
+onUnmounted(() => {
+  resetDrag();
+});
+
 
 const totalPages = computed(() => {
   if (!libraryResults.value.length) return 1;
@@ -803,52 +1038,99 @@ watch(libraryResults, () => {
 
   .session-list {
     position: relative;
-    display: grid;
+    display: flex;
+    flex-direction: column;
+    gap: 0.42rem;
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
-  @media (min-width: 761px) {
-    .session-list {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      column-gap: 1.2rem;
-    }
+  .session-reorder-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: -0.15rem 0 0;
+    color: var(--dim);
+    font-size: 0.54rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 
-  .session-row-enter-active,
-  .session-row-leave-active,
-  .session-row-move {
-    transition:
-      opacity 0.32s var(--ease),
-      transform 0.4s var(--ease-out);
-  }
-
-  .session-row-enter-from {
-    opacity: 0;
-    transform: translateX(-14px);
-  }
-
-  .session-row-leave-to {
-    opacity: 0;
-    transform: translateX(18px);
-  }
-
-  .session-row-leave-active {
-    position: absolute;
-    width: 100%;
+  .session-reorder-hint ion-icon {
+    font-size: 0.8rem;
   }
 
   .session-item {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--line);
+    gap: 0.55rem;
+    padding: 0.55rem 0.6rem;
+    border: 1px solid var(--line);
+    border-radius: 0.7rem;
+    background: var(--surface-2);
+    transition:
+      border-color 0.24s var(--ease),
+      background-color 0.24s var(--ease),
+      box-shadow 0.24s var(--ease);
   }
 
-  .session-item:last-child {
-    border-bottom: 0;
+  .session-item:hover {
+    border-color: var(--line-strong);
+    background: var(--surface-3);
+  }
+
+  .session-item.dragging {
+    border-color: var(--white);
+    background: var(--surface);
+    box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55);
+    cursor: grabbing;
+    pointer-events: none;
+    transition:
+      border-color 0.24s var(--ease),
+      background-color 0.24s var(--ease),
+      box-shadow 0.3s var(--ease);
+  }
+
+  .session-item.dragging .session-index {
+    color: var(--white);
+    border-color: var(--line-strong);
+  }
+
+  .drag-handle {
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 2.1rem;
+    flex-shrink: 0;
+    border: 1px solid transparent;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: var(--dim);
+    font-size: 0.95rem;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: color 0.2s var(--ease), border-color 0.2s var(--ease), background-color 0.2s var(--ease);
+  }
+
+  .drag-handle:hover {
+    border-color: var(--line-strong);
+    background: var(--surface-3);
+    color: var(--text);
+  }
+
+  .drag-handle:active {
+    cursor: grabbing;
+    color: var(--white);
+  }
+
+  :global(body.session-reordering) {
+    cursor: grabbing;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   .session-index {
@@ -1861,16 +2143,12 @@ watch(libraryResults, () => {
     }
 
     .session-list {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      column-gap: 0.5rem;
+      gap: 0.35rem;
     }
 
     .session-item {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: start;
-      gap: 0.25rem;
-      padding: 0.45rem 0;
+      gap: 0.4rem;
+      padding: 0.45rem 0.5rem;
     }
 
     .session-index {
@@ -1880,28 +2158,28 @@ watch(libraryResults, () => {
     }
 
     .session-info {
-      grid-column: 1 / -1;
       gap: 0.15rem;
     }
 
     .session-info strong {
-      display: -webkit-box;
-      overflow: hidden;
       font-size: 0.72rem;
       line-height: 1.25;
-      white-space: normal;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
     }
 
     .session-meta {
-      display: none;
+      gap: 0.2rem;
+    }
+
+    .drag-handle {
+      width: 1.5rem;
+      height: 2rem;
+      font-size: 0.85rem;
     }
 
     .icon-btn {
-      width: 1.35rem;
-      height: 1.35rem;
-      font-size: 0.6rem;
+      width: 1.5rem;
+      height: 1.5rem;
+      font-size: 0.65rem;
     }
   }
 
@@ -1995,7 +2273,7 @@ watch(libraryResults, () => {
     }
 
     .session-item {
-      gap: 0.25rem;
+      gap: 0.35rem;
     }
 
     .filter-row {
@@ -2011,10 +2289,7 @@ watch(libraryResults, () => {
   @media (prefers-reduced-motion: reduce) {
     .rec-card,
     .lib-card,
-    .filter-pill.active,
-    .session-row-enter-active,
-    .session-row-leave-active,
-    .session-row-move {
+    .filter-pill.active {
       animation: none;
       transition: none;
     }

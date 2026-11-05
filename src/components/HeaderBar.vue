@@ -14,19 +14,6 @@
 
         <div class="header-actions">
           <button
-            v-if="isNative"
-            class="header-refresh"
-            :class="{ spinning: refreshing }"
-            type="button"
-            :disabled="refreshing"
-            @click="refreshApp"
-            aria-label="Refresh app"
-            title="Refresh app"
-          >
-            <ion-icon :icon="refreshOutline" />
-          </button>
-
-          <button
             v-if="isAuthenticated"
             class="coach-btn"
             :class="{ active: isCoachOpen }"
@@ -58,10 +45,9 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { Capacitor } from '@capacitor/core';
-import { barbellSharp, refreshOutline } from 'ionicons/icons';
+import { barbellSharp } from 'ionicons/icons';
 import { useCoach } from '../composables/useCoach';
 import { useSession } from '../composables/useSession';
 import { useAuth } from '../composables/useAuth';
@@ -70,16 +56,6 @@ const router = useRouter();
 const { isCoachOpen, toggleCoach } = useCoach();
 const { hasAnyModalOpen } = useSession();
 const { displayName, initials, avatarUrl, isAuthenticated } = useAuth();
-
-const isNative = Capacitor.isNativePlatform();
-const refreshing = ref(false);
-
-const refreshApp = () => {
-  if (refreshing.value) return;
-  refreshing.value = true;
-  // Give the icon one visible spin before reloading the whole web app.
-  window.setTimeout(() => window.location.reload(), 280);
-};
 
 const avatarSrc = computed(() => {
   if (avatarUrl.value) return avatarUrl.value;
@@ -184,39 +160,6 @@ const goTo = (path) => router.push(path);
     align-items: center;
     justify-content: flex-end;
     gap: 0.7rem;
-  }
-
-  .header-refresh {
-    display: grid;
-    place-items: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    flex-shrink: 0;
-    border: 1px solid var(--line-strong);
-    border-radius: 11px;
-    background: var(--surface-2);
-    color: var(--text);
-    font-size: 1.05rem;
-    transition: border-color 0.3s var(--ease), background-color 0.3s var(--ease), transform 0.3s var(--ease);
-  }
-
-  .header-refresh:hover {
-    border-color: var(--ion-color-primary);
-    background: var(--surface-3);
-    transform: translateY(-1px);
-  }
-
-  .header-refresh:disabled {
-    opacity: 0.75;
-    cursor: wait;
-  }
-
-  .header-refresh.spinning ion-icon {
-    animation: headerSpin 0.7s linear infinite;
-  }
-
-  @keyframes headerSpin {
-    to { transform: rotate(360deg); }
   }
 
   .coach-btn {
