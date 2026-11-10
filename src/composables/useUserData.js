@@ -194,11 +194,13 @@ const syncAvatarToCloud = async (userId) => {
   if (url.startsWith('data:')) {
     try {
       const uploaded = await uploadAvatarImage(userId, url);
+      // No Storage bucket yet: keep the local photo instead of dropping it or
+      // retrying on every load. It will move to Storage once the bucket exists.
       if (!uploaded) return;
       url = uploaded;
       changed = true;
     } catch (error) {
-      console.warn('[storage] Could not upload avatar:', error?.message || error);
+      console.info('[storage] Avatar stays on this device:', error?.message || error);
       return;
     }
   }

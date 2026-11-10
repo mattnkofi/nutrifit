@@ -7,9 +7,6 @@
       frameborder="0"
       referrerpolicy="strict-origin-when-cross-origin"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
-      allowfullscreen
-      webkitallowfullscreen
-      mozallowfullscreen
     ></iframe>
     <p v-else class="embed-error">This video link is not valid.</p>
   </main>

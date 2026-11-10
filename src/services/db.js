@@ -93,9 +93,34 @@ const isMissingTableError = (error) => {
 
 // The image columns arrive with 0002_nutrifit_storage.sql. Until that migration
 // runs, retry the write without the new column so meals and profiles still sync.
+//
+// PostgREST answers with PGRST204 and a message such as
+// "Could not find the 'avatar_url' column of 'profiles' in the schema cache",
+// while Postgres itself uses 42703 and "<column> does not exist". Both mean the
+// same thing here: the optional column is not in this database yet.
+const MISSING_COLUMN_PATTERNS = [
+  /could not find the '([^']+)' column/i,
+  /column\s+"?([a-z0-9_]+)"?\s+does not exist/i,
+  /could not find the "([^"]+)" column/i,
+];
+
+const missingColumnName = (error) => {
+  const message = String(error?.message || '');
+  for (const pattern of MISSING_COLUMN_PATTERNS) {
+    const match = pattern.exec(message);
+    if (match?.[1]) return match[1];
+  }
+  return '';
+};
+
 const isMissingColumnError = (error) => {
   const message = String(error?.message || '').toLowerCase();
-  return error?.code === '42703' || (message.includes('column') && message.includes('does not exist'));
+  if (error?.code === 'PGRST204' || error?.code === '42703') return true;
+  return (
+    (message.includes('column') && message.includes('does not exist')) ||
+    (message.includes('could not find the') && message.includes('column')) ||
+    message.includes('schema cache')
+  );
 };
 
 // null = unknown, true/false = remembered for this session so the app does not
@@ -281,6 +306,12 @@ export async function fetchUserData(userId) {
   const failed = results.find((result) => result?.error);
   if (failed) throw toDbError(failed.error);
 
+  // `select('*')` also reveals which optional columns this database actually
+  // has, so the first avatar or meal photo save does not need a failed try.
+  if (profileResult.data) avatarColumnReady = 'avatar_url' in profileResult.data;
+  const firstMeal = asArray(mealsResult.data)[0];
+  if (firstMeal) imageColumnReady = 'image_url' in firstMeal;
+
   const water = {};
   asArray(waterResult.data).forEach((row) => {
     if (row?.day) water[row.day] = asNumber(row.glasses);
@@ -311,15 +342,24 @@ export async function fetchUserData(userId) {
 export async function saveProfileRemote(userId, profile) {
   const id = requireUserId(userId);
   const row = profileToRow(id, profile);
-  if (avatarColumnReady === false) delete row.avatar_url;
+  // An empty avatar is not worth a request: leave the optional column out until
+  // there is a real URL, so accounts without 0002 never hit a PGRST204 for
+  // nothing. Remember a missing column for the rest of the session.
+  const sendsAvatar = avatarColumnReady !== false && Boolean(row.avatar_url);
+  if (!sendsAvatar) delete row.avatar_url;
 
   let result = await client().from('profiles').upsert(row, { onConflict: 'id' });
-  if (result.error && isMissingColumnError(result.error) && 'avatar_url' in row) {
-    avatarColumnReady = false;
-    const { avatar_url, ...legacy } = row;
-    result = await client().from('profiles').upsert(legacy, { onConflict: 'id' });
+  if (result.error && isMissingColumnError(result.error)) {
+    const column = missingColumnName(result.error) || 'avatar_url';
+    if (column === 'avatar_url') {
+      avatarColumnReady = false;
+      if ('avatar_url' in row) {
+        const { avatar_url, ...legacy } = row;
+        result = await client().from('profiles').upsert(legacy, { onConflict: 'id' });
+      }
+    }
   }
-  if (!result.error) avatarColumnReady = true;
+  if (!result.error && sendsAvatar && avatarColumnReady !== false) avatarColumnReady = true;
   unwrap(result);
   return profile;
 }
@@ -356,15 +396,22 @@ export async function upsertWaterRows(userId, water = {}) {
 export async function addMealRemote(userId, entry) {
   const id = requireUserId(userId);
   const row = mealToRow(id, entry);
-  if (imageColumnReady === false) delete row.image_url;
+  // Only send image_url when Storage actually produced a public URL.
+  const sendsImage = imageColumnReady !== false && Boolean(row.image_url);
+  if (!sendsImage) delete row.image_url;
 
   let result = await client().from('meals').upsert(row, { onConflict: 'user_id,id' }).select().single();
-  if (result.error && isMissingColumnError(result.error) && 'image_url' in row) {
-    imageColumnReady = false;
-    const { image_url, ...legacy } = row;
-    result = await client().from('meals').upsert(legacy, { onConflict: 'user_id,id' }).select().single();
+  if (result.error && isMissingColumnError(result.error)) {
+    const column = missingColumnName(result.error) || 'image_url';
+    if (column === 'image_url') {
+      imageColumnReady = false;
+      if ('image_url' in row) {
+        const { image_url, ...legacy } = row;
+        result = await client().from('meals').upsert(legacy, { onConflict: 'user_id,id' }).select().single();
+      }
+    }
   }
-  if (!result.error) imageColumnReady = true;
+  if (!result.error && sendsImage && imageColumnReady !== false) imageColumnReady = true;
   if (result.error) throw toDbError(result.error);
   return mealFromRow(result.data);
 }
@@ -373,15 +420,19 @@ export async function upsertMeals(userId, entries = []) {
   const id = requireUserId(userId);
   let rows = asArray(entries).filter((entry) => entry?.name).map((entry) => mealToRow(id, entry));
   if (!rows.length) return;
-  if (imageColumnReady === false) rows = rows.map(({ image_url, ...legacy }) => legacy);
+  const sendsImage = imageColumnReady !== false && rows.some((row) => Boolean(row.image_url));
+  if (!sendsImage) rows = rows.map(({ image_url, ...legacy }) => legacy);
 
   let result = await client().from('meals').upsert(rows, { onConflict: 'user_id,id' });
   if (result.error && isMissingColumnError(result.error)) {
-    imageColumnReady = false;
-    rows = rows.map(({ image_url, ...legacy }) => legacy);
-    result = await client().from('meals').upsert(rows, { onConflict: 'user_id,id' });
+    const column = missingColumnName(result.error) || 'image_url';
+    if (column === 'image_url') {
+      imageColumnReady = false;
+      rows = rows.map(({ image_url, ...legacy }) => legacy);
+      result = await client().from('meals').upsert(rows, { onConflict: 'user_id,id' });
+    }
   }
-  if (!result.error) imageColumnReady = true;
+  if (!result.error && sendsImage && imageColumnReady !== false) imageColumnReady = true;
   if (result.error) throw toDbError(result.error);
 }
 
