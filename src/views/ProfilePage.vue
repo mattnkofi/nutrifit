@@ -1,7 +1,7 @@
 <template>
   <ion-page class="profile-page">
     
-    <ion-content :fullscreen="true" class="profile-content" :style="{ '--padding-top': 'calc(5rem + env(safe-area-inset-top, 0))' }">
+    <ion-content :fullscreen="true" class="profile-content" :style="{ '--padding-top': 'calc(var(--header-h) + 1.15rem + env(safe-area-inset-top, 0))' }">
       <main class="profile-shell">
         <section class="profile-hero">
           <div class="hero-copy">
@@ -703,6 +703,7 @@ import {
   GOAL_OPTIONS,
   clearUserStore,
 } from '../services/userData';
+import { uploadAvatarImage } from '../services/storage';
 
 const router = useRouter();
 const { setProfileModalOpen } = useSession();
@@ -1126,7 +1127,20 @@ const saveEditor = async () => {
 
   try {
     const nextName = String(form.value.fullName || '').trim();
-    const nextAvatar = String(form.value.avatarUrl || '').trim();
+    let nextAvatar = String(form.value.avatarUrl || '').trim();
+
+    // Upload the cropped photo first so Supabase stores a short URL instead of
+    // a base64 string. That is what makes the avatar show up on another device.
+    if (nextAvatar.startsWith('data:')) {
+      try {
+        const uploaded = await uploadAvatarImage(user.value?.id, nextAvatar);
+        if (uploaded) nextAvatar = uploaded;
+      } catch (error) {
+        // Keep the previous auth-metadata behaviour until Storage is available.
+        console.warn('[storage] Avatar upload failed, keeping local image:', error?.message || error);
+      }
+    }
+
     const result = await saveProfile({ ...form.value, fullName: nextName, avatarUrl: nextAvatar });
 
     if (result?.ok === false) {
@@ -1143,7 +1157,7 @@ const saveEditor = async () => {
       }
     }
 
-    if (nextAvatar !== (avatarUrl.value || '')) {
+    if (user.value && nextAvatar !== (avatarUrl.value || '')) {
       try {
         await updateAvatar(nextAvatar);
       } catch (error) {
@@ -1152,6 +1166,7 @@ const saveEditor = async () => {
       }
     }
 
+    form.value.avatarUrl = nextAvatar;
     showEditor.value = false;
   } catch (error) {
     formError.value = error?.message || 'Could not save your profile. Please try again.';
@@ -1265,8 +1280,8 @@ const confirmDeleteAccount = async () => {
 
   .profile-shell {
     width: 100%;
-    max-width: none;
-    margin: 0;
+    max-width: var(--content-max);
+    margin: 0 auto;
     padding-top: clamp(0.6rem, 1.2vw, 0.9rem);
   }
 
@@ -1469,7 +1484,7 @@ const confirmDeleteAccount = async () => {
     min-width: 70px;
   }
 
-  .banner-stat span {
+  .banner-stat > span {
     color: var(--dim);
     font-size: 0.42rem;
     font-weight: 500;
@@ -2320,6 +2335,30 @@ const confirmDeleteAccount = async () => {
 
   .danger-fill:disabled {
     opacity: 0.4;
+  }
+
+  @media (min-width: 1024px) {
+    .profile-shell {
+      padding-top: 0;
+    }
+
+    .profile-hero {
+      padding-bottom: 1.4rem;
+    }
+
+    .profile-banner {
+      margin-top: 1.4rem;
+    }
+
+    .profile-grid {
+      gap: 1.3rem;
+      margin-top: 1.3rem;
+    }
+
+    .profile-column,
+    .settings-column {
+      gap: 1.3rem;
+    }
   }
 
   @media (max-width: 1100px) {

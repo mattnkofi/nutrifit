@@ -587,7 +587,7 @@ onUnmounted(() => {
     min-width: 0;
   }
 
-  .progress-copy span,
+  .progress-copy > span,
   .progress-time {
     color: var(--dim);
     font-size: 0.58rem;
@@ -768,7 +768,7 @@ onUnmounted(() => {
     font-variant-numeric: tabular-nums;
   }
 
-  .timer-inner span {
+  .timer-inner > span {
     color: var(--dim);
     font-size: 0.48rem;
     font-weight: 500;
@@ -1088,7 +1088,7 @@ onUnmounted(() => {
     border-right: 0;
   }
 
-  .summary-stats span {
+  .summary-stats div > span {
     color: var(--dim);
     font-size: 0.44rem;
     font-weight: 500;

@@ -25,6 +25,8 @@
   --font-body: 'Poppins', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Oswald', 'Poppins', system-ui, sans-serif;
   --page-x: clamp(20px, 4vw, 64px);
+  --content-max: 1520px;
+  --header-h: 3.7rem;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
@@ -368,17 +370,29 @@ main {
 
 @media (min-width: 1024px) {
   :root {
-    --page-x: clamp(2rem, 6vw, 5rem);
+    --page-x: clamp(1.5rem, 3vw, 2.5rem);
+    --header-h: 4.95rem;
+  }
+
+  main {
+    padding-bottom: 3.5rem;
   }
 }
 
-@media (min-width: 1440px) {
+@media (min-width: 1280px) {
   :root {
-    --page-x: clamp(3rem, 8vw, 7rem);
+    --page-x: clamp(2rem, 3vw, 3.5rem);
+    --header-h: 5.2rem;
   }
 }
 
-@media (max-width: 1024px) {
+@media (min-width: 1600px) {
+  :root {
+    --page-x: clamp(2.5rem, 4vw, 4.5rem);
+  }
+}
+
+@media (max-width: 1023px) {
   main {
     padding-bottom: 8rem;
   }

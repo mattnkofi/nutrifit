@@ -1,7 +1,7 @@
 <template>
   <ion-page class="goals-page">
     
-    <ion-content :fullscreen="true" class="goals-content">
+    <ion-content :fullscreen="true" class="goals-content" :style="{ '--padding-top': 'calc(var(--header-h) + 1.15rem + env(safe-area-inset-top, 0))' }">
       <main class="goals-shell">
         <section class="goals-hero">
           <div class="hero-copy">
@@ -210,8 +210,8 @@ const weightProgress = computed(() => {
 
   .goals-shell {
     width: 100%;
-    max-width: none;
-    margin: 0;
+    max-width: var(--content-max);
+    margin: 0 auto;
     padding-top: clamp(0.6rem, 1.2vw, 0.9rem);
   }
 
@@ -288,7 +288,7 @@ const weightProgress = computed(() => {
     color: var(--dim);
   }
 
-  .hero-stat span {
+  .hero-stat > span {
     color: var(--dim);
     font-size: 0.44rem;
     font-weight: 500;
@@ -365,7 +365,7 @@ const weightProgress = computed(() => {
     letter-spacing: 0.005em;
   }
 
-  .metric span {
+  .metric > span:not(.rolling-number) {
     color: var(--dim);
     font-size: 0.38em;
   }
@@ -684,6 +684,31 @@ const weightProgress = computed(() => {
     flex: 1;
     height: 1px;
     background: rgba(0, 0, 0, 0.15);
+  }
+
+  @media (min-width: 1024px) {
+    .goals-shell {
+      padding-top: 0;
+    }
+
+    .goals-hero {
+      padding-bottom: 1.4rem;
+    }
+
+    .goals-grid {
+      margin-top: 1.1rem;
+    }
+
+    .metric-card {
+      min-height: 168px;
+      padding-top: 1.3rem;
+      padding-bottom: 1.3rem;
+    }
+
+    .progress-grid {
+      gap: 1.3rem;
+      margin-top: 1.5rem;
+    }
   }
 
   @media (max-width: 1100px) {

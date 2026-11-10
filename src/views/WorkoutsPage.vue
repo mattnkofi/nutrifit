@@ -1,7 +1,7 @@
 <template>
   <ion-page class="workouts-page">
 
-    <ion-content :fullscreen="true" class="workouts-content" :style="{ '--padding-top': 'calc(5rem + env(safe-area-inset-top, 0))' }">
+    <ion-content :fullscreen="true" class="workouts-content" :style="{ '--padding-top': 'calc(var(--header-h) + 1.15rem + env(safe-area-inset-top, 0))' }">
       <main class="workouts-shell">
 
         <!-- ================= HERO ================= -->
@@ -830,8 +830,8 @@ watch(libraryResults, () => {
 
   .workouts-shell {
     width: 100%;
-    max-width: none;
-    margin: 0;
+    max-width: var(--content-max);
+    margin: 0 auto;
     padding-top: clamp(0.6rem, 1.2vw, 0.9rem);
   }
 
@@ -898,7 +898,7 @@ watch(libraryResults, () => {
     font-weight: 400;
   }
 
-  .hero-stat span {
+  .hero-stat > span {
     color: var(--muted);
     font-size: 0.64rem;
     font-weight: 500;
@@ -1900,6 +1900,21 @@ watch(libraryResults, () => {
   }
 
   /* ============ RESPONSIVE ============ */
+  @media (min-width: 1024px) {
+    .workouts-shell {
+      padding-top: 0;
+    }
+
+    .workouts-hero {
+      padding-bottom: 1.5rem;
+    }
+
+    .rec-grid,
+    .library-grid {
+      gap: 1.2rem;
+    }
+  }
+
   @media (max-width: 1024px) {
     .workouts-hero {
       grid-template-columns: 1fr;

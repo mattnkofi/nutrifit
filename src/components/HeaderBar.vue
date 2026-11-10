@@ -10,7 +10,33 @@
           </span>
         </button>
 
-        <div class="header-spacer"></div>
+        <div class="header-center">
+          <nav
+            v-if="isAuthenticated"
+            ref="navRef"
+            class="desktop-nav"
+            aria-label="Primary navigation"
+          >
+            <span
+              class="desktop-nav-indicator"
+              :class="{ ready: indicatorReady }"
+              :style="indicatorStyle"
+              aria-hidden="true"
+            ></span>
+            <RouterLink
+              v-for="(item, index) in navItems"
+              :key="item.name"
+              :ref="(el) => setNavRef(el, index)"
+              :to="item.path"
+              class="desktop-nav-link"
+              :class="{ active: isActive(item) }"
+              :aria-current="isActive(item) ? 'page' : undefined"
+            >
+              <ion-icon :icon="item.icon" />
+              <span>{{ item.label }}</span>
+            </RouterLink>
+          </nav>
+        </div>
 
         <div class="header-actions">
           <button
@@ -45,17 +71,105 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { barbellSharp } from 'ionicons/icons';
 import { useCoach } from '../composables/useCoach';
 import { useSession } from '../composables/useSession';
 import { useAuth } from '../composables/useAuth';
+import { primaryNavItems } from '../config/navigation';
 
 const router = useRouter();
+const route = useRoute();
 const { isCoachOpen, toggleCoach } = useCoach();
 const { hasAnyModalOpen } = useSession();
 const { displayName, initials, avatarUrl, isAuthenticated } = useAuth();
+
+const navItems = primaryNavItems;
+const navRef = ref(null);
+const navRefs = ref([]);
+const indicatorStyle = ref({});
+const indicatorReady = ref(false);
+
+let resizeObserver = null;
+
+const routeName = () => {
+  const name = route.name;
+  return Array.isArray(name) ? name[0] : name;
+};
+
+const isActive = (item) => {
+  const name = routeName();
+  return name === item.name || (item.aliases || []).includes(name);
+};
+
+const setNavRef = (el, index) => {
+  if (el) navRefs.value[index] = el;
+};
+
+// Keep the highlight glued to the active link across route changes and
+// viewport resizes. The nav is display:none on smaller screens, so bail out
+// before measuring (a hidden element reports a zero-sized rect).
+const measureIndicator = async () => {
+  await nextTick();
+  const nav = navRef.value;
+  if (!nav || nav.offsetParent === null) {
+    indicatorReady.value = false;
+    return;
+  }
+
+  const index = navItems.findIndex(isActive);
+  const target = navRefs.value[index];
+  // RouterLink is a component, so its ref exposes the instance (with $el)
+  // rather than the anchor element itself.
+  const el = target?.$el || target;
+  if (index < 0 || !el?.getBoundingClientRect) {
+    indicatorReady.value = false;
+    return;
+  }
+
+  const navRect = nav.getBoundingClientRect();
+  const rect = el.getBoundingClientRect();
+
+  indicatorStyle.value = {
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    transform: `translate3d(${rect.left - navRect.left - nav.clientLeft}px, ${
+      rect.top - navRect.top - nav.clientTop
+    }px, 0)`,
+  };
+
+  if (!indicatorReady.value) {
+    // Paint the pill at rest first so it does not fly in from the corner.
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+  }
+  indicatorReady.value = true;
+};
+
+watch(
+  () => [route.name, isAuthenticated.value],
+  measureIndicator,
+  { flush: 'post' }
+);
+
+onMounted(() => {
+  measureIndicator();
+  window.addEventListener('resize', measureIndicator);
+
+  if ('ResizeObserver' in window) {
+    resizeObserver = new ResizeObserver(() => measureIndicator());
+    if (navRef.value) resizeObserver.observe(navRef.value);
+  }
+
+  window.setTimeout(measureIndicator, 260);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', measureIndicator);
+  resizeObserver?.disconnect();
+});
 
 const avatarSrc = computed(() => {
   if (avatarUrl.value) return avatarUrl.value;
@@ -99,8 +213,82 @@ const goTo = (path) => router.push(path);
     min-height: 3.8rem;
   }
 
-  .header-spacer {
-    width: 100%;
+  .header-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  /* ------------------------------------------------------- Desktop nav */
+
+  .desktop-nav {
+    position: relative;
+    display: none;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.025);
+  }
+
+  .desktop-nav-indicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 0;
+    border-radius: 999px;
+    background: var(--ion-color-primary);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.32);
+    pointer-events: none;
+    opacity: 0;
+    will-change: transform, width;
+    transition:
+      transform 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+      width 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.2s var(--ease);
+  }
+
+  .desktop-nav-indicator.ready {
+    opacity: 1;
+  }
+
+  .desktop-nav-indicator:not(.ready) {
+    transition: none;
+  }
+
+  .desktop-nav-link {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    height: 2.5rem;
+    padding: 0 0.88rem;
+    border-radius: 999px;
+    color: var(--muted);
+    font-family: var(--font-display);
+    font-size: 0.62rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-decoration: none;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition: color 0.28s var(--ease);
+  }
+
+  .desktop-nav-link ion-icon {
+    font-size: 1rem;
+  }
+
+  .desktop-nav-link:hover {
+    color: var(--text);
+  }
+
+  .desktop-nav-link.active,
+  .desktop-nav-link.active:hover {
+    color: var(--ion-color-primary-contrast);
   }
 
   .brand {
@@ -329,43 +517,113 @@ const goTo = (path) => router.push(path);
   }
 
   @media (min-width: 1024px) {
+    .desktop-nav {
+      display: inline-flex;
+    }
+
+    .desktop-nav-link span {
+      display: none;
+    }
+
     .header-shell {
-      grid-template-columns: auto 1fr auto;
-      gap: clamp(1rem, 2.4vw, 2.4rem);
-      padding: 1.5rem var(--page-x) 1.5rem;
-      padding-top: calc(1.5rem + env(safe-area-inset-top, 0));
-      min-height: 6rem;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: clamp(1rem, 2vw, 2rem);
+      padding: 0.95rem var(--page-x) 0.95rem;
+      padding-top: calc(0.95rem + env(safe-area-inset-top, 0));
+      min-height: 4.9rem;
     }
 
     .brand-mark {
-      width: 2.6rem;
-      height: 2.6rem;
-      padding: 0.32rem;
-      border-radius: 0.62rem;
+      width: 2.5rem;
+      height: 2.5rem;
+      padding: 0.28rem;
+      border-radius: 0.6rem;
     }
 
     .brand-name {
-      font-size: 1.42rem;
+      font-size: 1.28rem;
     }
 
     .brand-sub {
-      font-size: 0.52rem;
+      font-size: 0.5rem;
     }
 
     .header-actions {
-      gap: 0.85rem;
+      gap: 0.8rem;
     }
 
     .coach-btn {
-      height: 2.8rem;
-      padding: 0.28rem 1rem 0.28rem 0.28rem;
-      gap: 0.55rem;
+      height: 2.7rem;
+      padding: 0.26rem 0.95rem 0.26rem 0.26rem;
+      gap: 0.5rem;
     }
 
     .coach-icon {
-      width: 2.24rem;
-      height: 2.24rem;
-      font-size: 1.12rem;
+      width: 2.15rem;
+      height: 2.15rem;
+      font-size: 1.05rem;
+    }
+
+    .coach-label {
+      font-size: 0.66rem;
+    }
+
+    .profile-pill {
+      gap: 0.6rem;
+      padding: 0.28rem 0.28rem 0.28rem 0.8rem;
+      border-radius: 10px;
+    }
+
+    .profile-copy strong {
+      font-size: 0.7rem;
+    }
+
+    .profile-copy small {
+      font-size: 0.44rem;
+    }
+
+    .avatar {
+      width: 2.05rem;
+      height: 2.05rem;
+    }
+  }
+
+  @media (min-width: 1180px) {
+    .desktop-nav-link span {
+      display: inline;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .header-shell {
+      padding: 1.05rem var(--page-x) 1.05rem;
+      padding-top: calc(1.05rem + env(safe-area-inset-top, 0));
+      min-height: 5.15rem;
+    }
+
+    .brand-mark {
+      width: 2.7rem;
+      height: 2.7rem;
+      padding: 0.3rem;
+    }
+
+    .brand-name {
+      font-size: 1.4rem;
+    }
+
+    .brand-sub {
+      font-size: 0.54rem;
+    }
+
+    .coach-btn {
+      height: 2.85rem;
+      padding: 0.28rem 1rem 0.28rem 0.28rem;
+    }
+
+    .coach-icon {
+      width: 2.28rem;
+      height: 2.28rem;
+      font-size: 1.1rem;
     }
 
     .coach-label {
@@ -373,13 +631,11 @@ const goTo = (path) => router.push(path);
     }
 
     .profile-pill {
-      gap: 0.65rem;
-      padding: 0.3rem 0.3rem 0.3rem 0.85rem;
-      border-radius: 11px;
+      padding: 0.3rem 0.3rem 0.3rem 0.88rem;
     }
 
     .profile-copy strong {
-      font-size: 0.72rem;
+      font-size: 0.75rem;
     }
 
     .profile-copy small {
@@ -387,62 +643,8 @@ const goTo = (path) => router.push(path);
     }
 
     .avatar {
-      width: 2.15rem;
-      height: 2.15rem;
-    }
-  }
-
-  @media (min-width: 1280px) {
-    .header-shell {
-      padding: 1.7rem var(--page-x) 1.7rem;
-      padding-top: calc(1.7rem + env(safe-area-inset-top, 0));
-      min-height: 6.7rem;
-    }
-
-    .brand-mark {
-      width: 2.95rem;
-      height: 2.95rem;
-      padding: 0.36rem;
-    }
-
-    .brand-name {
-      font-size: 1.58rem;
-    }
-
-    .brand-sub {
-      font-size: 0.57rem;
-    }
-
-    .coach-btn {
-      height: 3.05rem;
-      padding: 0.3rem 1.1rem 0.3rem 0.3rem;
-    }
-
-    .coach-icon {
-      width: 2.45rem;
-      height: 2.45rem;
-      font-size: 1.22rem;
-    }
-
-    .coach-label {
-      font-size: 0.76rem;
-    }
-
-    .profile-pill {
-      padding: 0.34rem 0.34rem 0.34rem 0.95rem;
-    }
-
-    .profile-copy strong {
-      font-size: 0.8rem;
-    }
-
-    .profile-copy small {
-      font-size: 0.5rem;
-    }
-
-    .avatar {
-      width: 2.35rem;
-      height: 2.35rem;
+      width: 2.2rem;
+      height: 2.2rem;
     }
   }
 

@@ -117,7 +117,7 @@ watch(
 
   @media (min-width: 1024px) {
     :deep(ion-router-outlet) {
-      --padding-bottom: 2rem;
+      padding-bottom: 0;
     }
   }
 

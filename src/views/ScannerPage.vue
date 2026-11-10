@@ -1,6 +1,6 @@
 <template>
   <ion-page class="scanner-page">
-    <ion-content :fullscreen="true" class="scanner-content" :style="{ '--padding-top': 'calc(5rem + env(safe-area-inset-top, 0))' }">
+    <ion-content :fullscreen="true" class="scanner-content" :style="{ '--padding-top': 'calc(var(--header-h) + 1.15rem + env(safe-area-inset-top, 0))' }">
       <main class="scanner-shell-page">
         <section class="scanner-hero">
           <div class="hero-copy">
@@ -237,7 +237,8 @@
               @click="openMealModal(h)"
             >
               <div class="history-img-wrap">
-                <img :src="h.image" alt="meal" />
+                <img v-if="h.image" :src="h.image" alt="meal" />
+                <span v-else class="history-img-fallback"><ion-icon :icon="restaurantOutline" /></span>
                 <button 
                   class="delete-btn" 
                   type="button" 
@@ -277,7 +278,8 @@
 
           <!-- Hero Image Banner with Floating Calorie Badge -->
           <div class="mod-hero">
-            <img :src="selectedMeal.image" alt="Meal photo" />
+            <img v-if="selectedMeal.image" :src="selectedMeal.image" alt="Meal photo" />
+            <div v-else class="mod-hero-fallback"><ion-icon :icon="restaurantOutline" /></div>
             <div class="mod-cal-pill">
               <span class="mcp-num"><RollingNumber :value="selectedMeal.calories" /></span>
               <span class="mcp-lbl">kcal</span>
@@ -776,9 +778,9 @@ onBeforeUnmount(stopCamera);
 
   .scanner-shell-page {
     width: 100%;
-    max-width: none;
-    margin: 0;
-    padding: clamp(0.6rem, 1.2vw, 0.9rem);
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding-top: clamp(0.6rem, 1.2vw, 0.9rem);
   }
 
   .scanner-hero {
@@ -1308,7 +1310,7 @@ onBeforeUnmount(stopCamera);
     margin-top: 0.2rem;
   }
 
-  .macro-grid span {
+  .macro-grid > span {
     display: grid;
     gap: 0.15rem;
     padding: 0.65rem 0.5rem;
@@ -1546,6 +1548,16 @@ onBeforeUnmount(stopCamera);
     transition: transform 0.4s var(--ease);
   }
 
+  .history-img-fallback {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    color: var(--dim);
+    font-size: 1.1rem;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
   .history-item:hover img {
     transform: scale(1.04);
   }
@@ -1713,6 +1725,16 @@ onBeforeUnmount(stopCamera);
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  .mod-hero-fallback {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    color: var(--dim);
+    font-size: 2rem;
+    background: rgba(255, 255, 255, 0.04);
   }
 
   .mod-cal-pill {
@@ -2109,6 +2131,22 @@ onBeforeUnmount(stopCamera);
     .modal-fade-enter-from .custom-alert-card,
     .modal-fade-leave-to .custom-alert-card {
       transform: none;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .scanner-shell-page {
+      padding-top: 0;
+      padding-bottom: 1rem;
+    }
+
+    .scanner-hero {
+      padding-bottom: 1rem;
+    }
+
+    .scanner-workspace {
+      gap: 1.4rem;
+      margin-top: 1.5rem;
     }
   }
 

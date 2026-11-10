@@ -1,6 +1,6 @@
 <template>
   <ion-page class="planner-page">
-    <ion-content :fullscreen="true" class="planner-content" :style="{ '--padding-top': 'calc(5rem + env(safe-area-inset-top, 0))' }">
+    <ion-content :fullscreen="true" class="planner-content" :style="{ '--padding-top': 'calc(var(--header-h) + 1.15rem + env(safe-area-inset-top, 0))' }">
       <main class="planner-shell">
         <section class="planner-hero">
           <div class="hero-copy">
@@ -436,8 +436,8 @@ onUnmounted(() => {
 
   .planner-shell {
     width: 100%;
-    max-width: none;
-    margin: 0;
+    max-width: var(--content-max);
+    margin: 0 auto;
     padding-top: clamp(0.6rem, 1.2vw, 0.9rem);
     padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0));
   }
@@ -1431,6 +1431,22 @@ onUnmounted(() => {
     color: var(--dim);
     font-size: 0.5rem;
     line-height: 1.55;
+  }
+
+  @media (min-width: 1024px) {
+    .planner-shell {
+      padding-top: 0;
+      padding-bottom: 2.5rem;
+    }
+
+    .planner-hero {
+      padding-bottom: 1.4rem;
+    }
+
+    .planner-workspace {
+      gap: 1.4rem;
+      margin-top: 1.5rem;
+    }
   }
 
   @media (max-width: 1100px) {

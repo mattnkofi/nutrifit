@@ -65,6 +65,7 @@ export const createEmptyProfile = () => ({
   dailyProtein: null,
   waterTarget: 8,
   trainingTarget: 4,
+  avatarUrl: '',
   updatedAt: '',
 });
 
@@ -95,6 +96,7 @@ export const normalizeProfile = (raw) => {
     dailyProtein: toPositiveNumber(source.dailyProtein),
     waterTarget: toPositiveNumber(source.waterTarget) || base.waterTarget,
     trainingTarget: toPositiveNumber(source.trainingTarget) || base.trainingTarget,
+    avatarUrl: typeof source.avatarUrl === 'string' ? source.avatarUrl.trim() : '',
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : '',
   };
 };

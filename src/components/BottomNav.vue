@@ -27,28 +27,16 @@
 <script setup>
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import {
-  homeOutline,
-  barbellOutline,
-  cameraOutline,
-  calendarOutline,
-  personOutline,
-} from 'ionicons/icons';
 import { useCoach } from '../composables/useCoach';
 import { useSession } from '../composables/useSession';
+import { primaryNavItems } from '../config/navigation';
 
 const router = useRouter();
 const route = useRoute();
 const { isCoachOpen } = useCoach();
 const { hasAnyModalOpen } = useSession();
 
-const items = [
-  { name: 'dashboard', label: 'Home', icon: homeOutline, path: '/dashboard' },
-  { name: 'workouts', label: 'Workouts', icon: barbellOutline, path: '/workouts' },
-  { name: 'scanner', label: 'Scan', icon: cameraOutline, path: '/scanner' },
-  { name: 'planner', label: 'Planner', icon: calendarOutline, path: '/planner' },
-  { name: 'profile', label: 'Profile', icon: personOutline, path: '/profile' },
-];
+const items = primaryNavItems;
 
 const tabBarRef = ref(null);
 const tabRefs = ref([]);
@@ -58,7 +46,10 @@ const indicatorReady = ref(false);
 let resizeObserver = null;
 
 const routeName = () => (Array.isArray(route.name) ? route.name[0] : route.name);
-const isActive = (item) => routeName() === item.name;
+const isActive = (item) => {
+  const name = routeName();
+  return name === item.name || (item.aliases || []).includes(name);
+};
 
 const setTabRef = (el, index) => {
   if (el) tabRefs.value[index] = el;
@@ -265,68 +256,9 @@ const goTo = (path) => {
   }
 
   @media (min-width: 1024px) {
+    /* Desktop uses the docked nav inside HeaderBar instead of this bar. */
     .bottom-nav {
-      left: auto;
-      right: 2rem;
-      top: 50%;
-      bottom: auto;
-      transform: translateY(-50%);
-      width: auto;
-      border: 1px solid var(--line-strong);
-      border-radius: 999px;
-      background: rgba(var(--ion-background-color-rgb, 7, 7, 7), 0.85);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      padding-bottom: 0;
-      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.25);
-    }
-
-    .tab-bar {
-      flex-direction: column;
-      justify-content: center;
-      gap: 0.4rem;
-      padding: 0.6rem 0.5rem;
-      height: auto;
-      max-width: none;
-    }
-
-    .nav-indicator {
-      border-radius: 999px;
-    }
-
-    .tab-btn {
-      width: 3.6rem;
-      height: 3.6rem;
-      font-size: 1.7rem;
-      transition:
-        color 0.28s var(--ease),
-        transform 0.28s var(--ease-out);
-    }
-
-    .tab-btn.active {
-      border-radius: 999px;
-      padding: 0;
-    }
-  }
-
-  @media (min-width: 1280px) {
-    .bottom-nav {
-      right: 2.5rem;
-    }
-
-    .tab-bar {
-      gap: 0.5rem;
-      padding: 0.8rem 0.6rem;
-    }
-
-    .tab-btn {
-      width: 4rem;
-      height: 4rem;
-      font-size: 1.9rem;
-    }
-
-    .tab-btn.active {
-      padding: 0;
+      display: none;
     }
   }
 </style>

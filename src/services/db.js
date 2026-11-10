@@ -19,7 +19,7 @@ export class DbSetupError extends Error {
 }
 
 const SETUP_MESSAGE =
-  'Supabase tables are not set up yet. Run supabase/migrations/0001_nutrifit_core.sql in the Supabase SQL editor, then reload. See DATABASE_SETUP.md.';
+  'Supabase tables are not set up yet. Run supabase/migrations/0001_nutrifit_core.sql and 0002_nutrifit_storage.sql in the Supabase SQL editor, then reload. See DATABASE_SETUP.md.';
 
 const client = () => {
   if (!supabase) {
@@ -34,6 +34,40 @@ const asArray = (value) => (Array.isArray(value) ? value : []);
 const asNumber = (value, fallback = 0) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+};
+
+// Only remote URLs belong in the image columns. A base64 data URL stays in the
+// local mirror until the Storage upload finishes.
+const asImageUrl = (value) => {
+  const text = String(value || '').trim();
+  return /^https?:\/\//i.test(text) ? text : '';
+};
+
+// Meal photos are carried inside the existing meals.items JSONB so they reach
+// other devices even when the optional Storage migration has not been run. The
+// marker entry is removed before the app sees the food items.
+const MEAL_IMAGE_KEY = '__nutrifit_image';
+
+const splitMealItems = (items) => {
+  const list = asArray(items);
+  const marker = list.find(
+    (item) => item && typeof item === 'object' && typeof item[MEAL_IMAGE_KEY] === 'string'
+  );
+  return {
+    items: list.filter(
+      (item) => !(item && typeof item === 'object' && typeof item[MEAL_IMAGE_KEY] === 'string')
+    ),
+    image: marker?.[MEAL_IMAGE_KEY] || '',
+  };
+};
+
+const packMealItems = (items, image) => {
+  const list = asArray(items).filter(
+    (item) => !(item && typeof item === 'object' && MEAL_IMAGE_KEY in item)
+  );
+  const value = String(image || '');
+  if (value) list.push({ [MEAL_IMAGE_KEY]: value });
+  return list;
 };
 
 const dayKey = (value = new Date()) => {
@@ -56,6 +90,18 @@ const isMissingTableError = (error) => {
     message.includes('invalid path specified')
   );
 };
+
+// The image columns arrive with 0002_nutrifit_storage.sql. Until that migration
+// runs, retry the write without the new column so meals and profiles still sync.
+const isMissingColumnError = (error) => {
+  const message = String(error?.message || '').toLowerCase();
+  return error?.code === '42703' || (message.includes('column') && message.includes('does not exist'));
+};
+
+// null = unknown, true/false = remembered for this session so the app does not
+// retry a missing column on every save.
+let avatarColumnReady = null;
+let imageColumnReady = null;
 
 export const toDbError = (error) => {
   if (!error) return null;
@@ -96,6 +142,7 @@ const profileFromRow = (row) => {
     dailyProtein: row.daily_protein ?? null,
     waterTarget: row.water_target ?? 8,
     trainingTarget: row.training_target ?? 4,
+    avatarUrl: row.avatar_url || '',
     updatedAt: row.updated_at || '',
   };
 };
@@ -115,22 +162,27 @@ const profileToRow = (userId, profile = {}) => ({
   daily_protein: profile.dailyProtein ?? null,
   water_target: profile.waterTarget ?? 8,
   training_target: profile.trainingTarget ?? 4,
+  avatar_url: asImageUrl(profile.avatarUrl),
   updated_at: profile.updatedAt || new Date().toISOString(),
 });
 
-const mealFromRow = (row) => ({
-  id: row.id,
-  name: row.name || 'Meal',
-  mealType: row.meal_type || '',
-  calories: asNumber(row.calories),
-  protein: asNumber(row.protein),
-  carbs: asNumber(row.carbs),
-  fat: asNumber(row.fat),
-  servingSize: row.serving_size || '',
-  items: asArray(row.items),
-  date: row.eaten_at ? new Date(row.eaten_at).toLocaleString() : row.day || '',
-  dateISO: row.day || '',
-});
+const mealFromRow = (row) => {
+  const packed = splitMealItems(row.items);
+  return {
+    id: row.id,
+    name: row.name || 'Meal',
+    mealType: row.meal_type || '',
+    calories: asNumber(row.calories),
+    protein: asNumber(row.protein),
+    carbs: asNumber(row.carbs),
+    fat: asNumber(row.fat),
+    servingSize: row.serving_size || '',
+    items: packed.items,
+    date: row.eaten_at ? new Date(row.eaten_at).toLocaleString() : row.day || '',
+    dateISO: row.day || '',
+    image: row.image_url || packed.image || '',
+  };
+};
 
 const mealToRow = (userId, entry = {}) => {
   const day = entry.dateISO || dayKey(entry.date) || dayKey();
@@ -144,7 +196,8 @@ const mealToRow = (userId, entry = {}) => {
     carbs: asNumber(entry.carbs),
     fat: asNumber(entry.fat),
     serving_size: entry.servingSize || null,
-    items: asArray(entry.items),
+    items: packMealItems(entry.items, entry.imageUrl || entry.image),
+    image_url: asImageUrl(entry.imageUrl || entry.image),
     day,
     eaten_at: entry.date && !Number.isNaN(new Date(entry.date).getTime())
       ? new Date(entry.date).toISOString()
@@ -257,7 +310,17 @@ export async function fetchUserData(userId) {
 
 export async function saveProfileRemote(userId, profile) {
   const id = requireUserId(userId);
-  unwrap(await client().from('profiles').upsert(profileToRow(id, profile), { onConflict: 'id' }));
+  const row = profileToRow(id, profile);
+  if (avatarColumnReady === false) delete row.avatar_url;
+
+  let result = await client().from('profiles').upsert(row, { onConflict: 'id' });
+  if (result.error && isMissingColumnError(result.error) && 'avatar_url' in row) {
+    avatarColumnReady = false;
+    const { avatar_url, ...legacy } = row;
+    result = await client().from('profiles').upsert(legacy, { onConflict: 'id' });
+  }
+  if (!result.error) avatarColumnReady = true;
+  unwrap(result);
   return profile;
 }
 
@@ -293,16 +356,33 @@ export async function upsertWaterRows(userId, water = {}) {
 export async function addMealRemote(userId, entry) {
   const id = requireUserId(userId);
   const row = mealToRow(id, entry);
-  const { data, error } = await client().from('meals').upsert(row, { onConflict: 'user_id,id' }).select().single();
-  if (error) throw toDbError(error);
-  return mealFromRow(data);
+  if (imageColumnReady === false) delete row.image_url;
+
+  let result = await client().from('meals').upsert(row, { onConflict: 'user_id,id' }).select().single();
+  if (result.error && isMissingColumnError(result.error) && 'image_url' in row) {
+    imageColumnReady = false;
+    const { image_url, ...legacy } = row;
+    result = await client().from('meals').upsert(legacy, { onConflict: 'user_id,id' }).select().single();
+  }
+  if (!result.error) imageColumnReady = true;
+  if (result.error) throw toDbError(result.error);
+  return mealFromRow(result.data);
 }
 
 export async function upsertMeals(userId, entries = []) {
   const id = requireUserId(userId);
-  const rows = asArray(entries).filter((entry) => entry?.name).map((entry) => mealToRow(id, entry));
+  let rows = asArray(entries).filter((entry) => entry?.name).map((entry) => mealToRow(id, entry));
   if (!rows.length) return;
-  unwrap(await client().from('meals').upsert(rows, { onConflict: 'user_id,id' }));
+  if (imageColumnReady === false) rows = rows.map(({ image_url, ...legacy }) => legacy);
+
+  let result = await client().from('meals').upsert(rows, { onConflict: 'user_id,id' });
+  if (result.error && isMissingColumnError(result.error)) {
+    imageColumnReady = false;
+    rows = rows.map(({ image_url, ...legacy }) => legacy);
+    result = await client().from('meals').upsert(rows, { onConflict: 'user_id,id' });
+  }
+  if (!result.error) imageColumnReady = true;
+  if (result.error) throw toDbError(result.error);
 }
 
 export async function deleteMealRemote(userId, mealId) {
@@ -384,7 +464,8 @@ const profileHasData = (profile) => {
       profile.activityLevel ||
       profile.equipment ||
       profile.dailyCalories ||
-      profile.dailyProtein
+      profile.dailyProtein ||
+      profile.avatarUrl
   );
 };
 

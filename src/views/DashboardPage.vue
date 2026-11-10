@@ -1,6 +1,6 @@
 <template>
   <ion-page class="dashboard-page">
-    <ion-content :fullscreen="true" class="dashboard-content" :style="{ '--padding-top': 'calc(7.2rem + env(safe-area-inset-top, 0))' }">
+    <ion-content :fullscreen="true" class="dashboard-content" :style="{ '--padding-top': 'calc(var(--header-h) + 1.15rem + env(safe-area-inset-top, 0))' }">
       <main class="dashboard-shell">
         <section class="dash-hero">
           <div class="hero-main">
@@ -489,8 +489,8 @@ const completedFocus = computed(
 
   .dashboard-shell {
     width: 100%;
-    max-width: none;
-    margin: 0;
+    max-width: var(--content-max);
+    margin: 0 auto;
     padding-top: clamp(0.6rem, 1.2vw, 0.9rem);
   }
 
@@ -593,7 +593,7 @@ const completedFocus = computed(
     color: var(--dim);
   }
 
-  .hero-stat span {
+  .hero-stat > span {
     color: var(--dim);
     font-size: 0.54rem;
     font-weight: 500;
@@ -1662,6 +1662,33 @@ const completedFocus = computed(
   }
 
   /* -------------------------------------------------------- Responsive */
+
+  @media (min-width: 1024px) {
+    .dashboard-shell {
+      padding-top: 0;
+    }
+
+    .dash-hero {
+      grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 420px);
+      gap: clamp(1.5rem, 2.4vw, 2.4rem);
+      padding-bottom: 1.6rem;
+    }
+
+    .metric-rail {
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .workspace-grid {
+      gap: 1.3rem;
+      margin-top: 1.4rem;
+    }
+
+    .workspace-main,
+    .workspace-side {
+      gap: 1.3rem;
+    }
+  }
 
   @media (max-width: 1280px) {
     .quick-actions {

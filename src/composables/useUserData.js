@@ -15,6 +15,12 @@ import {
   syncMissingRemote,
 } from '../services/db';
 import {
+  compressImageDataUrl,
+  deleteStoredImage,
+  uploadAvatarImage,
+  uploadMealImage,
+} from '../services/storage';
+import {
   activityLabel,
   average,
   buildDayStats,
@@ -88,6 +94,138 @@ const cacheMealImages = (meals) => {
   mealImages.value = next;
   persist('meal_images', next);
 };
+
+// Replaces the temporary base64 photo with the Storage URL once the upload is
+// done, so the history keeps working after a reload and on another device.
+const replaceMealImage = (mealId, imageUrl) => {
+  if (!imageUrl) return;
+  mealHistory.value = mealHistory.value.map((meal) =>
+    String(meal?.id) === String(mealId) ? { ...meal, image: imageUrl } : meal
+  );
+  cacheMealImages(mealHistory.value);
+  persist('meal_history', stripMealImages(mealHistory.value));
+};
+
+const syncMealImage = async (meal) => {
+  if (!isCloudUser() || !meal) return meal;
+  if (!String(meal.image || '').startsWith('data:')) return meal;
+
+  try {
+    const url = await uploadMealImage(currentUserId.value, meal.id, meal.image);
+    if (url) {
+      replaceMealImage(meal.id, url);
+      return { ...meal, image: url };
+    }
+  } catch (error) {
+    // The bucket may not exist yet; fall through to the in-row copy.
+    console.warn('[storage] Could not upload meal photo:', error?.message || error);
+  }
+
+  // No Storage: keep a compressed copy inside the meal row so the photo still
+  // syncs to other devices without a database migration.
+  const compact = await compressImageDataUrl(meal.image);
+  if (compact && compact !== meal.image) {
+    replaceMealImage(meal.id, compact);
+    return { ...meal, image: compact };
+  }
+  return meal;
+};
+
+// Uploads photos that only exist as base64 on this device (offline logs and
+// accounts created before Storage existed) and patches the matching DB rows.
+const syncLocalMealImages = async (localMeals, remoteMeals) => {
+  const locals = asArray(localMeals);
+  const remotes = asArray(remoteMeals);
+  if (!isCloudUser()) return { localMeals: locals, remoteMeals: remotes };
+
+  const remoteById = new Map(remotes.map((meal) => [String(meal?.id), meal]));
+  const upgraded = [];
+  const patchedRemote = new Map();
+
+  for (const meal of locals) {
+    if (!String(meal?.image || '').startsWith('data:')) continue;
+    const key = String(meal?.id);
+    if (remoteById.get(key)?.image) continue;
+
+    // Always push the photo, even when compression left it unchanged. The old
+    // `synced.image === meal.image` guard skipped small photos, so they stayed
+    // only on the device that took them.
+    const synced = await syncMealImage(meal);
+    if (!synced.image) continue;
+    upgraded.push(synced);
+
+    // Only patch rows that already exist remotely. Older builds could leave a
+    // deleted meal in this device's cache, and re-adding it here would bring it
+    // back on every device.
+    if (!remoteById.has(key)) continue;
+
+    try {
+      await addMealRemote(currentUserId.value, synced);
+      patchedRemote.set(key, synced.image);
+    } catch (error) {
+      console.warn('[storage] Could not backfill meal photo:', error?.message || error);
+    }
+  }
+
+  if (!upgraded.length) return { localMeals: locals, remoteMeals: remotes };
+
+  const upgradedById = new Map(upgraded.map((meal) => [String(meal.id), meal.image]));
+  return {
+    localMeals: locals.map((meal) =>
+      upgradedById.has(String(meal?.id)) ? { ...meal, image: upgradedById.get(String(meal?.id)) } : meal
+    ),
+    remoteMeals: remotes.map((meal) =>
+      patchedRemote.has(String(meal?.id)) ? { ...meal, image: patchedRemote.get(String(meal?.id)) } : meal
+    ),
+  };
+};
+
+// Older builds kept the avatar as a base64 string in auth metadata. Move it to
+// Storage once, keep profiles.avatar_url and the auth metadata in sync, and
+// restore the avatar on a new device even if only one of them has it.
+const syncAvatarToCloud = async (userId) => {
+  if (!isCloudUser()) return;
+  const stored = String(profile.value.avatarUrl || '').trim();
+  const meta = String(auth.avatarUrl.value || '').trim();
+  let url = stored || meta;
+  if (!url) return;
+
+  let changed = false;
+  if (url.startsWith('data:')) {
+    try {
+      const uploaded = await uploadAvatarImage(userId, url);
+      if (!uploaded) return;
+      url = uploaded;
+      changed = true;
+    } catch (error) {
+      console.warn('[storage] Could not upload avatar:', error?.message || error);
+      return;
+    }
+  }
+
+  if (url !== stored) {
+    profile.value = normalizeProfile({ ...profile.value, avatarUrl: url });
+    persist('profile', profile.value);
+    changed = true;
+  }
+
+  if (changed) {
+    try {
+      await saveProfileRemote(userId, profile.value);
+    } catch (error) {
+      markFailed(error);
+    }
+  }
+
+  if (url !== meta) {
+    try {
+      await auth.updateAvatar(url);
+    } catch (error) {
+      console.warn('[storage] Could not sync avatar metadata:', error?.message || error);
+    }
+  }
+};
+
 
 const readLocal = (userId) => ({
   profile: normalizeProfile(readUserStore(userId, 'profile', {})),
@@ -180,11 +318,22 @@ const hydrate = async (userId) => {
   try {
     const remote = await fetchUserData(id);
     if (token !== hydrateToken) return;
-    const merged = await syncMissingRemote(id, remote, local);
+    // Photos live in a separate local store (`meal_images`), so merge them in
+    // before backfilling. Reading raw `meal_history` meant those photos were
+    // never seen and never reached `meals.items`.
+    const localMeals = attachMealImages(local.mealHistory, local.mealImages);
+    const images = await syncLocalMealImages(localMeals, remote.meals);
+    if (token !== hydrateToken) return;
+    const merged = await syncMissingRemote(
+      id,
+      { ...remote, meals: images.remoteMeals },
+      { ...local, mealHistory: images.localMeals }
+    );
     if (token !== hydrateToken) return;
     applyRemote(merged, local.mealImages);
     mirrorCurrent(id);
     markSynced();
+    await syncAvatarToCloud(id);
   } catch (error) {
     if (token !== hydrateToken) return;
     markFailed(error);
@@ -247,14 +396,24 @@ const addMeal = (entry) => {
   mealHistory.value = [next, ...mealHistory.value];
   cacheMealImages(mealHistory.value);
   persist('meal_history', stripMealImages(mealHistory.value));
-  pushRemote(() => addMealRemote(currentUserId.value, next));
+  pushRemote(async () => {
+    const synced = await syncMealImage(next);
+    return addMealRemote(currentUserId.value, synced);
+  });
 };
 
 const deleteMeal = (id) => {
+  const removed = mealHistory.value.find((meal) => String(meal?.id) === String(id));
   mealHistory.value = mealHistory.value.filter((meal) => String(meal.id) !== String(id));
   cacheMealImages(mealHistory.value);
   persist('meal_history', stripMealImages(mealHistory.value));
-  pushRemote(() => deleteMealRemote(currentUserId.value, id));
+  pushRemote(async () => {
+    const result = await deleteMealRemote(currentUserId.value, id);
+    if (removed?.image) {
+      await deleteStoredImage(removed.image, currentUserId.value).catch(() => {});
+    }
+    return result;
+  });
 };
 
 const addWorkout = (record) => {
