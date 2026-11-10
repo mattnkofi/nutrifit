@@ -87,9 +87,43 @@ export const getAvatarUrl = (user) => {
 
 export async function getCurrentSession() {
   if (!supabase) return null;
-  const { data, error } = await supabase.auth.getSession();
-  if (error) throw error;
-  return data.session;
+  try {
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data?.session) {
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData?.session) {
+        await supabase.auth.signOut().catch(() => {});
+        return null;
+      }
+      return refreshData.session;
+    }
+
+    const session = data.session;
+    const expiresAt = session.expires_at; // timestamp in seconds
+    const now = Math.floor(Date.now() / 1000);
+    if (expiresAt && expiresAt < now + 60) {
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData?.session) {
+        await supabase.auth.signOut().catch(() => {});
+        return null;
+      }
+      return refreshData.session;
+    }
+
+    return session;
+  } catch (err) {
+    try {
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError || !refreshData?.session) {
+        await supabase.auth.signOut().catch(() => {});
+        return null;
+      }
+      return refreshData.session;
+    } catch (e) {
+      await supabase.auth.signOut().catch(() => {});
+      return null;
+    }
+  }
 }
 
 export async function signUpWithEmail({ name, email, password }) {

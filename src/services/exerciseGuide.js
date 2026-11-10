@@ -499,6 +499,13 @@ export const getPrescription = (exercise = {}) => {
     restSeconds = 75;
   }
 
+  // A generated plan can carry its own volume. Guided sessions started from the
+  // planner should follow that instead of the generic defaults.
+  const plannedSets = Math.round(Number(exercise.sets));
+  if (Number.isFinite(plannedSets) && plannedSets > 0) sets = Math.min(12, plannedSets);
+  const plannedReps = String(exercise.reps || '').trim();
+  if (plannedReps) reps = plannedReps;
+
   const tempo = mobility
     ? 'Slow and steady · no bouncing'
     : cardio

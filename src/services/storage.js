@@ -24,31 +24,6 @@ const markStorageUnusable = () => {
 
 const asArray = (value) => (Array.isArray(value) ? value : []);
 
-// The buckets only exist after 0002_nutrifit_storage.sql. Ask once per session
-// which buckets are available instead of discovering it through a failed
-// upload (which shows up as a 400 in the console). `undefined` = not asked yet,
-// `null` = could not ask (let the upload itself decide).
-let bucketCache;
-const knownBuckets = async () => {
-  if (!supabase) return new Set();
-  if (bucketCache !== undefined) return bucketCache;
-  try {
-    const { data, error } = await supabase.storage.listBuckets();
-    bucketCache = error ? null : new Set(asArray(data).map((bucket) => bucket.name));
-  } catch (error) {
-    bucketCache = null;
-  }
-  return bucketCache;
-};
-
-const bucketExists = async (bucket) => {
-  const buckets = await knownBuckets();
-  if (!buckets) return true;
-  if (buckets.has(bucket)) return true;
-  markStorageUnusable();
-  return false;
-};
-
 const isHttpUrl = (value) => /^https?:\/\//i.test(String(value || ''));
 
 const randomId = () =>
@@ -97,7 +72,6 @@ const uploadImage = async (bucket, userId, name, dataUrl) => {
   if (!supabase || !storageUsable) return '';
   if (isHttpUrl(dataUrl)) return String(dataUrl);
   if (!userId || userId === 'guest') return '';
-  if (!(await bucketExists(bucket))) return '';
 
   const parsed = parseDataUrl(dataUrl);
   if (!parsed || !parsed.bytes.length) return '';
@@ -107,13 +81,36 @@ const uploadImage = async (bucket, userId, name, dataUrl) => {
 
   const path = `${safeSegment(userId)}/${safeSegment(name)}-${randomId()}.${extensionFor(parsed.mime)}`;
   const blob = new Blob([parsed.bytes], { type: parsed.mime });
-  const { error } = await supabase.storage.from(bucket).upload(path, blob, {
+  let uploadRes = await supabase.storage.from(bucket).upload(path, blob, {
     cacheControl: '31536000',
     contentType: parsed.mime,
     upsert: false,
   });
 
-  if (error) {
+  if (uploadRes.error) {
+    const message = String(uploadRes.error?.message || uploadRes.error || '').toLowerCase();
+    if (
+      uploadRes.error?.statusCode === 401 ||
+      message.includes('401') ||
+      message.includes('unauthorized') ||
+      message.includes('exp') ||
+      message.includes('jwt')
+    ) {
+      try {
+        const { data } = await supabase.auth.refreshSession();
+        if (data?.session) {
+          uploadRes = await supabase.storage.from(bucket).upload(path, blob, {
+            cacheControl: '31536000',
+            contentType: parsed.mime,
+            upsert: false,
+          });
+        }
+      } catch (e) {}
+    }
+  }
+
+  if (uploadRes.error) {
+    const error = uploadRes.error;
     const message = String(error?.message || error || '').toLowerCase();
     if (
       error?.statusCode === '404' ||

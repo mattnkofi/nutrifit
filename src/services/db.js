@@ -135,8 +135,21 @@ export const toDbError = (error) => {
   return error;
 };
 
-const unwrap = (result) => {
-  if (result?.error) throw toDbError(result.error);
+const unwrap = async (queryFnOrResult) => {
+  let result = typeof queryFnOrResult === 'function' ? await queryFnOrResult() : await queryFnOrResult;
+  if (result?.error) {
+    const err = result.error;
+    const msg = String(err?.message || '').toLowerCase();
+    if (err?.status === 401 || err?.statusCode === 401 || msg.includes('unauthorized') || msg.includes('exp') || msg.includes('jwt')) {
+      try {
+        const { data } = await supabase.auth.refreshSession();
+        if (data?.session && typeof queryFnOrResult === 'function') {
+          result = await queryFnOrResult();
+        }
+      } catch (e) {}
+    }
+    if (result?.error) throw toDbError(result.error);
+  }
   return result?.data;
 };
 
@@ -366,8 +379,8 @@ export async function saveProfileRemote(userId, profile) {
 
 export async function setWaterRemote(userId, day, glasses) {
   const id = requireUserId(userId);
-  unwrap(
-    await client().from('water_logs').upsert(
+  await unwrap(async () =>
+    client().from('water_logs').upsert(
       {
         user_id: id,
         day,
@@ -390,7 +403,9 @@ export async function upsertWaterRows(userId, water = {}) {
       updated_at: new Date().toISOString(),
     }));
   if (!rows.length) return;
-  unwrap(await client().from('water_logs').upsert(rows, { onConflict: 'user_id,day' }));
+  await unwrap(async () =>
+    client().from('water_logs').upsert(rows, { onConflict: 'user_id,day' })
+  );
 }
 
 export async function addMealRemote(userId, entry) {
@@ -438,7 +453,7 @@ export async function upsertMeals(userId, entries = []) {
 
 export async function deleteMealRemote(userId, mealId) {
   const id = requireUserId(userId);
-  unwrap(await client().from('meals').delete().eq('user_id', id).eq('id', String(mealId)));
+  await unwrap(async () => client().from('meals').delete().eq('user_id', id).eq('id', String(mealId)));
 }
 
 export async function addWorkoutRemote(userId, record) {
@@ -453,13 +468,13 @@ export async function upsertWorkouts(userId, records = []) {
   const id = requireUserId(userId);
   const rows = asArray(records).filter(Boolean).map((record) => workoutToRow(id, record));
   if (!rows.length) return;
-  unwrap(await client().from('workouts').upsert(rows, { onConflict: 'user_id,id' }));
+  await unwrap(async () => client().from('workouts').upsert(rows, { onConflict: 'user_id,id' }));
 }
 
 export async function saveSessionRemote(userId, exercises = []) {
   const id = requireUserId(userId);
-  unwrap(
-    await client().from('workout_sessions').upsert(
+  await unwrap(async () =>
+    client().from('workout_sessions').upsert(
       {
         user_id: id,
         exercises: asArray(exercises),
@@ -472,8 +487,8 @@ export async function saveSessionRemote(userId, exercises = []) {
 
 export async function savePlansRemote(userId, plans = {}) {
   const id = requireUserId(userId);
-  unwrap(
-    await client().from('plans').upsert(
+  await unwrap(async () =>
+    client().from('plans').upsert(
       {
         user_id: id,
         workouts: asArray(plans.workouts),
@@ -487,8 +502,8 @@ export async function savePlansRemote(userId, plans = {}) {
 
 export async function saveSettingsRemote(userId, settings) {
   const id = requireUserId(userId);
-  unwrap(
-    await client().from('user_settings').upsert(settingsToRow(id, settings), { onConflict: 'user_id' })
+  await unwrap(async () =>
+    client().from('user_settings').upsert(settingsToRow(id, settings), { onConflict: 'user_id' })
   );
 }
 

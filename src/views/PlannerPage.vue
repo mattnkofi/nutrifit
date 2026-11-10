@@ -103,7 +103,7 @@
 
             <!-- Workouts Plan View -->
             <div v-else-if="activeTab === 'workouts' && aiPlan.length" class="plan-list animate-fade">
-              <div v-for="day in aiPlan" :key="day.day" class="plan-day clickable-card" @click="openDayModal(day, 'workout')">
+              <div v-for="day in aiPlan" :key="day.day" class="plan-day clickable-card" :class="{ today: isPlanDayToday(day.day) }" @click="openDayModal(day, 'workout')">
                 <span class="plan-day-name">{{ day.day }}</span>
                 <div class="plan-day-body">
                   <strong>{{ day.workout?.name }}</strong>
@@ -112,6 +112,7 @@
                     exercise{{ (day.workout?.exercises?.length || 0) === 1 ? '' : 's' }}
                   </small>
                 </div>
+                <span v-if="isPlanDayToday(day.day)" class="today-chip">Today</span>
                 <ion-icon :icon="chevronForwardOutline" class="day-arrow" />
               </div>
             </div>
@@ -218,6 +219,9 @@
               >
                 <div class="pei-top">
                   <strong><RollingNumber :value="ei + 1" />. {{ ex.name }}</strong>
+                  <span v-if="ex.sets || ex.reps" class="pei-sets">
+                    <template v-if="ex.sets"><RollingNumber :value="ex.sets" /> × </template>{{ ex.reps || '' }}
+                  </span>
                 </div>
                 <p class="pei-notes" v-if="ex.notes">{{ ex.notes }}</p>
                 <small class="pei-hint" v-if="hasValidTutorial(ex.name)">VIEW YOUTUBE TUTORIAL &amp; GUIDE →</small>
@@ -226,6 +230,16 @@
           </div>
 
           <div class="pm-footer">
+            <p v-if="sessionError" class="pm-session-error">{{ sessionError }}</p>
+            <button
+              class="primary-button pm-start-btn"
+              type="button"
+              :disabled="startingSession || !selectedDayModal.workout?.exercises?.length"
+              @click="startPlanSession(selectedDayModal)"
+            >
+              <ion-icon :icon="playCircleOutline" />
+              {{ startingSession ? 'Preparing session…' : 'Start Session' }}
+            </button>
             <button class="scan-button pm-done-btn" type="button" @click="selectedDayModal = null">
               Done
             </button>
@@ -234,10 +248,23 @@
       </div>
     </transition>
 
+    <div class="session-toast" v-if="sessionNotice" role="status">{{ sessionNotice }}</div>
+
+    <WorkoutSessionModal
+      :is-open="showSession"
+      :exercises="sessionItems"
+      :title="sessionTitle"
+      @close="showSession = false"
+      @complete="handleSessionComplete"
+    />
+
     <ExerciseDetailModal
       :is-open="showExerciseModal"
       :exercise="selectedExercise"
+      :in-session="isInSession(selectedExercise)"
       @close="showExerciseModal = false"
+      @add="addToSession"
+      @start="startSingle"
     />
   </ion-page>
 </template>
@@ -253,12 +280,14 @@ import {
   chevronForwardOutline,
   chevronUpOutline,
   closeOutline,
+  playCircleOutline,
   restaurantOutline,
   sparklesOutline,
 } from 'ionicons/icons';
 import { generateWorkoutPlan, generateMealPlan } from '../services/aiService';
 import { getExercisesByNames, normalizeExercise, loadExercises } from '../services/exercises';
 import ExerciseDetailModal from '../components/ExerciseDetailModal.vue';
+import WorkoutSessionModal from '../components/WorkoutSessionModal.vue';
 import RollingNumber from '../components/RollingNumber.vue';
 import { useUserData } from '../composables/useUserData';
 import { getWeekDates, todayKey } from '../services/userData';
@@ -268,7 +297,10 @@ const {
   mealHistory,
   plans,
   savePlans,
+  addWorkout,
   labels,
+  session,
+  saveSession,
 } = useUserData();
 
 const aiPlan = computed(() => plans.value.workouts);
@@ -306,6 +338,52 @@ const planError = ref('');
 const selectedDayModal = ref(null);
 const showExerciseModal = ref(false);
 const selectedExercise = ref(null);
+
+// Guided session started from a day of the weekly plan.
+const showSession = ref(false);
+const sessionItems = ref([]);
+const sessionTitle = ref('');
+const sessionPlanDay = ref(null);
+const startingSession = ref(false);
+const sessionError = ref('');
+
+const sessionExercises = session;
+const sessionNotice = ref('');
+let noticeTimer = null;
+
+const notify = (message) => {
+  sessionNotice.value = message;
+  if (noticeTimer) window.clearTimeout(noticeTimer);
+  noticeTimer = window.setTimeout(() => {
+    sessionNotice.value = '';
+  }, 3000);
+};
+
+const isInSession = (ex) => {
+  if (!ex?.name) return false;
+  return sessionExercises.value.some((item) => item.id === ex.id || item.name === ex.name);
+};
+
+const addToSession = (ex) => {
+  if (!ex?.name) return;
+  if (isInSession(ex)) {
+    notify('Already in your session');
+    return;
+  }
+  const next = [...sessionExercises.value, ex];
+  saveSession(next);
+  notify(`${ex.name} added to your session`);
+};
+
+const startSingle = (ex) => {
+  if (!ex?.name) return;
+  showExerciseModal.value = false;
+  selectedDayModal.value = null;
+  sessionItems.value = [ex];
+  sessionTitle.value = ex.name;
+  sessionPlanDay.value = null;
+  showSession.value = true;
+};
 
 const validExerciseNames = ref(new Set());
 
@@ -347,6 +425,79 @@ const openDayModal = (dayData, type) => {
   if (type === 'workout') {
     selectedDayModal.value = dayData;
   }
+};
+
+const isPlanDayToday = (dayName) => {
+  const normalized = String(dayName || '').toLowerCase().trim();
+  const short = daysMapFull[normalized] || normalized.slice(0, 3);
+  return Boolean(short) && short.toLowerCase() === getTodayShort().toLowerCase();
+};
+
+// Turns the plan's exercise list into the richer shape the guided session
+// player expects (level, equipment, images, instructions) while keeping the
+// sets and reps that were planned for that day.
+const buildSessionItems = async (day) => {
+  const planned = Array.isArray(day?.workout?.exercises) ? day.workout.exercises : [];
+  const items = await Promise.all(
+    planned.map(async (exercise) => {
+      const name = String(exercise?.name || '').trim();
+      if (!name) return null;
+
+      let match = null;
+      try {
+        const [found] = await getExercisesByNames([name]);
+        match = found || null;
+      } catch (error) {
+        match = null;
+      }
+
+      const base = match || normalizeExercise({
+        name,
+        group: day?.workout?.group,
+        level: day?.workout?.level,
+      });
+
+      return {
+        ...base,
+        name: base.name || name,
+        sets: Number(exercise?.sets) || undefined,
+        reps: exercise?.reps ? String(exercise.reps) : undefined,
+        notes: exercise?.notes ? String(exercise.notes) : '',
+      };
+    })
+  );
+  return items.filter(Boolean);
+};
+
+const startPlanSession = async (day) => {
+  if (startingSession.value || !day?.workout) return;
+  startingSession.value = true;
+  sessionError.value = '';
+  try {
+    const items = await buildSessionItems(day);
+    if (!items.length) {
+      sessionError.value = 'This day has no exercises to run. Regenerate the plan and try again.';
+      return;
+    }
+    sessionItems.value = items;
+    sessionTitle.value = `${day.day} · ${day.workout.name || 'Workout'}`;
+    sessionPlanDay.value = day;
+    selectedDayModal.value = null;
+    showSession.value = true;
+  } finally {
+    startingSession.value = false;
+  }
+};
+
+const handleSessionComplete = (summary) => {
+  const day = sessionPlanDay.value;
+  addWorkout({
+    ...summary,
+    title: sessionTitle.value || day?.workout?.name || 'Workout',
+    items: sessionItems.value.map(({ raw, searchText, rank, ...item }) => item),
+    planDay: day?.day || '',
+    date: new Date().toISOString(),
+  });
 };
 
 const hasValidTutorial = (exerciseName) => {
@@ -1235,16 +1386,52 @@ onUnmounted(() => {
     border-top: 1px solid var(--line);
     padding-top: 1rem;
     display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .pm-start-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    width: 100%;
+    padding: 0.8rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .pm-start-btn ion-icon {
+    font-size: 1rem;
+  }
+
+  .pm-start-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .pm-session-error {
+    margin: 0 0 0.15rem;
+    color: var(--text-soft);
+    font-size: 0.6rem;
+    line-height: 1.5;
+    text-align: center;
   }
 
   .pm-done-btn {
     width: 100%;
-    padding: 0.75rem;
-    font-size: 0.78rem;
-    font-weight: 700;
-    text-transform: uppercase;
+    padding: 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 600;
     letter-spacing: 0.06em;
+    text-transform: uppercase;
     border-radius: 999px;
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    color: var(--muted);
   }
 
   .planner-side {
@@ -1328,6 +1515,28 @@ onUnmounted(() => {
     border-radius: 1rem;
     background: var(--surface-2);
     min-width: 0;
+  }
+
+  .plan-day.today {
+    border-color: var(--line-strong);
+    background: var(--surface-3);
+  }
+
+  .plan-day.today .plan-day-name {
+    color: var(--white);
+  }
+
+  .today-chip {
+    padding: 0.22rem 0.5rem;
+    border-radius: 999px;
+    background: var(--white);
+    color: var(--black);
+    font-size: 0.5rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .plan-day-name {
@@ -1523,6 +1732,39 @@ onUnmounted(() => {
       width: 2rem;
       height: 2rem;
       font-size: 0.85rem;
+    }
+  }
+
+  /* ============ TOAST ============ */
+  .session-toast {
+    position: fixed;
+    z-index: 20000;
+    bottom: calc(5.2rem + env(safe-area-inset-bottom, 0));
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: min(92vw, 420px);
+    padding: 0.75rem 1.1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--white);
+    color: var(--black);
+    font-family: var(--font-display);
+    font-size: 0.66rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    animation: toastPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes toastPop {
+    from {
+      opacity: 0;
+      transform: translate(-50%, 12px);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, 0);
     }
   }
 </style>
